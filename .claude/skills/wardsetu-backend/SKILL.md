@@ -2403,8 +2403,10 @@ dependency.
 ### Authoritative data model
 
 `docs/DATABASE_ARCHITECTURE.md` documents the target schema from the _WardConnect — Backend
-Schema & API Specification v3.0_ (42 tables, hierarchy, election terms, representative office
-users, issue state machine, auth/roles, audit/consent/deletion/device/feature-flag models).
+Schema & API Specification v4.0_, read together with v3.1 and v3.0, which v4.0 and v3.1 refer
+back to for unchanged sections. It covers 46 tables plus 1 optional: the hierarchy, election
+terms, representative office users, `user_ward_roles`, the roles/permissions catalog, the issue
+state machine, and the audit/consent/deletion/device/feature-flag models.
 
 * Treat it as the authoritative database reference. Preserve its table, column, enum and role
   names exactly.
@@ -2413,8 +2415,27 @@ users, issue state machine, auth/roles, audit/consent/deletion/device/feature-fl
   `user_ward_roles` table, unstated column types) with a recorded decision before implementing
   the affected tables.
 * Items marked RECOMMENDED / FUTURE (PostGIS geometry, content translations, outbox,
-  term-end reminder, moving `reservation_category` to `election_terms`) are not part of the
-  current schema.
+  term-end reminder, moving `reservation_category` to `election_terms`, custom roles, role-column
+  FKs to `roles.key`) are not part of the current schema.
+
+### Authorization model (spec v3.1 + v4.0)
+
+* `user_ward_roles` is the table every authorization check queries, for every role. There is one
+  uniform query shape: "does a live row exist for this user, this ward and, for term-scoped
+  roles, the ward's current active term".
+* `ward_representative` and `ward_rep_office` rows carry `election_term_id` and are written in the
+  same transaction as `representative_office_users` (or when `linked_user_id` is set). They are
+  deleted in the same transaction that closes the term.
+* Effective permissions: role(s) from `user_ward_roles` → `role_permissions` → optional
+  `user_permission_overrides` → allow/deny. Role capabilities are data, not code. New permission
+  keys are added by inserting rows, not by schema migrations.
+* The six role values (`citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`,
+  `ward_admin`, `platform_admin`) are fixed. `roles.key` is a natural key and all six have
+  `is_system = true`.
+* Several details are still undecided (see `docs/DATABASE_ARCHITECTURE.md` §17.2): NULL handling
+  in the `user_ward_roles` unique key, how citizens with no row get their role, wildcard seed
+  expansion, unassigned permission keys, and override precedence. Get a recorded decision before
+  implementing them.
 
 ### Cloud (Claude Code on the web) sessions
 
