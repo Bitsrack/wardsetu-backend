@@ -2403,10 +2403,10 @@ dependency.
 ### Authoritative data model
 
 `docs/DATABASE_ARCHITECTURE.md` documents the target schema from the _WardConnect — Backend
-Schema & API Specification v4.0_, read together with v3.1 and v3.0, which v4.0 and v3.1 refer
-back to for unchanged sections. It covers 46 tables plus 1 optional: the hierarchy, election
-terms, representative office users, `user_ward_roles`, the roles/permissions catalog, the issue
-state machine, and the audit/consent/deletion/device/feature-flag models.
+Schema & API Specification v5.0 (Consolidated Edition)_, which supersedes v1.0–v4.0. It covers 48
+tables: the hierarchy, election terms, representative office users, `user_ward_roles`, the
+roles/permissions catalog, the issue state machine, and the
+audit/consent/deletion/device/feature-flag models.
 
 * Treat it as the authoritative database reference. Preserve its table, column, enum and role
   names exactly.
@@ -2418,7 +2418,7 @@ state machine, and the audit/consent/deletion/device/feature-flag models.
   term-end reminder, moving `reservation_category` to `election_terms`, custom roles, role-column
   FKs to `roles.key`) are not part of the current schema.
 
-### Authorization model (spec v3.1 + v4.0)
+### Authorization model (spec v5.0)
 
 * `user_ward_roles` is the table every authorization check queries, for every role. There is one
   uniform query shape: "does a live row exist for this user, this ward and, for term-scoped
@@ -2426,16 +2426,29 @@ state machine, and the audit/consent/deletion/device/feature-flag models.
 * `ward_representative` and `ward_rep_office` rows carry `election_term_id` and are written in the
   same transaction as `representative_office_users` (or when `linked_user_id` is set). They are
   deleted in the same transaction that closes the term.
-* Effective permissions: role(s) from `user_ward_roles` → `role_permissions` → optional
-  `user_permission_overrides` → allow/deny. Role capabilities are data, not code. New permission
-  keys are added by inserting rows, not by schema migrations.
-* The six role values (`citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`,
-  `ward_admin`, `platform_admin`) are fixed. `roles.key` is a natural key and all six have
-  `is_system = true`.
-* Several details are still undecided (see `docs/DATABASE_ARCHITECTURE.md` §17.2): NULL handling
-  in the `user_ward_roles` unique key, how citizens with no row get their role, wildcard seed
-  expansion, unassigned permission keys, and override precedence. Get a recorded decision before
-  implementing them.
+* Every user gets an explicit `citizen` row, auto-created at first OTP verify. There is no
+  implicit default.
+* `user_ward_roles` scopes each role by exactly one of `ward_id` / `city_id` / `district_id` /
+  `state_id` (or none for `citizen` / `platform_admin`). This is enforced by a database CHECK,
+  with `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+; the spec targets 16.x).
+* Nine roles: `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`,
+  `ulb_admin`, `district_admin`, `state_admin`, `platform_admin`. Appointments cascade:
+  platform → state → district → ULB → ward admin.
+* Effective permissions: roles from `user_ward_roles` → platform default `role_permissions` →
+  `ward_role_permission_overrides` (ward + role) → `user_permission_overrides` (user;
+  ward-specific before global; expired rows skipped). The most specific tier wins. Role
+  capabilities are data, not code; seed lists use concrete keys, never wildcards.
+* The new-term workflow requires an explicit `representative_profile_id` or `new_profile`
+  (409 on a likely duplicate). Never infer identity by name or mobile.
+* Still open (see `docs/DATABASE_ARCHITECTURE.md` §17.2):
+  * the worked example vs the seed for `content:publish`;
+  * `ward_rep_office` holding `representative_office:manage`;
+  * hierarchy scope checks for tiered admins;
+  * a citizen-row backfill;
+  * who may manage platform-wide escalation rules;
+  * the server's PostgreSQL version.
+
+  Get a recorded decision before implementing these.
 
 ### Cloud (Claude Code on the web) sessions
 

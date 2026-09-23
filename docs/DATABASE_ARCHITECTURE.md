@@ -1,13 +1,13 @@
 # WardSetu Backend — Database Architecture
 
 > **Authoritative database reference for the WardSetu backend.**
-> Source: _WardConnect — Backend Schema & API Specification_, **Version 4.0** (17 Sep 2026),
-> read together with **v3.1** and **v3.0**, the earlier documents that v4.0 and v3.1 refer back to
-> for unchanged sections (see §1.2). This document restates the specification for the database
-> layer. It does **not** add, rename or redesign anything. Where the source is silent, ambiguous
-> or internally inconsistent, that is flagged in
-> [§17 Source gaps and open questions](#17-source-gaps-and-open-questions) rather than resolved
-> here.
+> Source: _WardConnect — Backend Schema & API Specification_, **Version 5.0 (Consolidated
+> Edition)**, 17 Sep 2026. v5.0 is a standalone document that merges v1.0–v4.0 and resolves the
+> open questions on roles and permissions. Earlier versions (v3.0, v3.1, v4.0) are kept only for
+> detail and rationale that v5.0 restates more briefly **without contradicting** it (see §1.1).
+> Where versions differ, **v5.0 wins**. This document restates the specification for the database
+> layer. It does **not** add, rename or redesign anything. Anything still silent or ambiguous is
+> flagged in [§17 Source gaps and open questions](#17-source-gaps-and-open-questions).
 
 ## Contents
 
@@ -28,46 +28,51 @@
 15. [Cross-cutting data conventions](#15-cross-cutting-data-conventions)
 16. [PostgreSQL / PostGIS recommendations and flagged future items](#16-postgresql--postgis-recommendations-and-flagged-future-items)
 17. [Source gaps and open questions](#17-source-gaps-and-open-questions)
-18. [v1.0 → v4.0 gap analysis (traceability)](#18-v10--v40-gap-analysis-traceability)
+18. [v1.0 → v5.0 gap analysis (traceability)](#18-v10--v50-gap-analysis-traceability)
 19. [API endpoints that read or write these tables](#19-api-endpoints-that-read-or-write-these-tables)
 
 ---
 
 ## 1. Document control
 
-| Item               | Value                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Source documents   | WardConnect — Backend Schema & API Specification **v4.0**, **v3.1** and **v3.0** (all dated 17 Sep 2026)                       |
-| Current version    | **v4.0** (supersedes v3.1, same day)                                                                                           |
-| Product name       | The source calls the platform **WardConnect**; this repository is the WardSetu backend.                                        |
-| Identifier policy  | All table, column, enum-value, role, permission and endpoint names are copied verbatim from the source.                        |
-| Scope of this file | Database structure, constraints, relationships and data rules. API detail is summarised only where it defines data behaviour.  |
-| Change policy      | Changes to the data model must first be made in the specification, then reflected here, then implemented as Prisma migrations. |
+| Item               | Value                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source documents   | WardConnect — Backend Schema & API Specification **v5.0 (Consolidated Edition)**; earlier v4.0, v3.1 and v3.0 for supporting detail (all dated 17 Sep 2026) |
+| Current version    | **v5.0 (Consolidated Edition)**, superseding all earlier versions                                                                                           |
+| Product name       | The source calls the platform **WardConnect**; this repository is the WardSetu backend.                                                                     |
+| Identifier policy  | All table, column, enum-value, role, permission and endpoint names are copied verbatim from the source.                                                     |
+| Scope of this file | Database structure, constraints, relationships and data rules. API detail is summarised only where it defines data behaviour.                               |
+| Change policy      | Changes to the data model must first be made in the specification, then reflected here, then implemented as Prisma migrations.                              |
 
 ### 1.1 Specification lineage
 
-v3.1 and v4.0 are **delta documents**. They reprint only what changed and explicitly refer back to
-the earlier version for everything else. This file merges them into one current view.
+v3.1 and v4.0 were **delta documents** that reprinted only what changed. **v5.0 is a
+consolidated, standalone edition.** Where v5.0 restates a table more briefly than an earlier
+version (for example without the `reservation_category` value list, the legacy `wards` text
+columns or the `designation` default), the earlier detail is kept here unless v5.0 contradicts it
+(see §17.3).
 
-| Version | What it changed (source "What changed" summary)                                                                                                                                                                                                                                                                                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v3.0    | Modelled the 5-year election cycle: `election_terms`, `representative_profiles`, `ward_representative_terms`, `representative_office_users`; roles `ward_representative` and `ward_rep_office`. Full table definitions for the location hierarchy, v1.0 tables and v2.0 deep-research tables.                                   |
-| v3.1    | **Restored the missing `user_ward_roles` definition** (fully defined in v1.0, dropped by omission from v2.0/v3.0), added `election_term_id` to it, and resolved how the two representative roles authorise: **they get real `user_ward_roles` rows**. Corrected the carried-forward count to **23**. No other section changed.  |
-| v4.0    | Added a **queryable roles and permissions catalog**: `roles`, `permissions`, `role_permissions` and optional `user_permission_overrides`, plus a permissions seed list and role mapping. The six role values, the role columns and v3.1's term-scoped authorization model are **unchanged**. No role gains or loses capability. |
+| Version  | What it changed (source "What changed" summary)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.0     | Original single-state (Rajasthan) MVP schema.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| v2.0     | Widened to Pan-India: location hierarchy, deep-research-pass tables.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| v3.0     | Modelled the 5-year election cycle: `election_terms`, `representative_profiles`, `ward_representative_terms`, `representative_office_users`; roles `ward_representative` and `ward_rep_office`.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| v3.1     | **Restored the missing `user_ward_roles` definition** (fully defined in v1.0, dropped by omission from v2.0/v3.0), added `election_term_id` to it, and resolved how the two representative roles authorise: **they get real `user_ward_roles` rows**. Corrected the carried-forward count to **23**. No other section changed.                                                                                                                                                                                                                                                                        |
+| v4.0     | Added a **queryable roles and permissions catalog**: `roles`, `permissions`, `role_permissions`, `user_permission_overrides`, plus a permissions seed list and role mapping. A later "v4.0 (Consolidated Edition)" merged v1.0–v4.0 into one document.                                                                                                                                                                                                                                                                                                                                                |
+| **v5.0** | **Consolidated Edition. Resolved eight open questions on roles and permissions (gap log #16–23):** `UNIQUE NULLS NOT DISTINCT` wherever a nullable column sits in a unique key; an explicit `citizen` row for every user (no implicit default); wildcards expanded to concrete keys; the three unassigned permissions given to `ward_admin`; the new `ward_role_permission_overrides` table and a three-tier precedence rule; explicit identity in the new-term workflow (never inferred); new roles **`state_admin`, `district_admin`, `ulb_admin`** with location-scoped `user_ward_roles` columns. |
 
 ### 1.2 Legend
 
-| Marker                                           | Meaning                                                                                       |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| **NEW (v2.0)** / **NEW (v3.0)** / **NEW (v4.0)** | Table introduced in that specification version.                                               |
-| **MODIFIED (v2.0)** / **MODIFIED (v3.1)**        | Existing v1.0 table changed in that version.                                                  |
-| **v1.0**                                         | Carried forward from v1.0 without structural change.                                          |
-| **RETIRED**                                      | Table that existed in an earlier version and must not be implemented.                         |
-| 🔶 **RECOMMENDED / FUTURE**                      | Flagged by the source as a recommendation or next step. **Not part of the current schema.**   |
-| **OPTIONAL**                                     | Defined by the source but explicitly optional; may land later with no impact on other tables. |
-| ⚠️ **SOURCE GAP**                                | The source is silent or ambiguous. Must be decided before implementation (see §17).           |
-| _Type_ column "—"                                | The source does **not** state a data type. Do not infer one without a recorded decision.      |
-| _Null_ column "NULL"                             | The source marks the column nullable. A blank means the source does not state nullability.    |
+| Marker                                           | Meaning                                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| **NEW (v2.0)** / **NEW (v3.0)** / **NEW (v4.0)** | Table introduced in that specification version.                                             |
+| **MODIFIED (v2.0)** / **MODIFIED (v3.1)**        | Existing v1.0 table changed in that version.                                                |
+| **v1.0**                                         | Carried forward from v1.0 without structural change.                                        |
+| **RETIRED**                                      | Table that existed in an earlier version and must not be implemented.                       |
+| 🔶 **RECOMMENDED / FUTURE**                      | Flagged by the source as a recommendation or next step. **Not part of the current schema.** |
+| ⚠️ **SOURCE GAP**                                | The source is silent or ambiguous. Must be decided before implementation (see §17).         |
+| _Type_ column "—"                                | The source does **not** state a data type. Do not infer one without a recorded decision.    |
+| _Null_ column "NULL"                             | The source marks the column nullable. A blank means the source does not state nullability.  |
 
 ---
 
@@ -117,24 +122,35 @@ These principles come from the source and constrain every table below.
 9. **Honest forwarding.** _Never imply an issue was officially submitted to a municipal
    department when the platform only records an internal reference/forwarding action_
    (`issue_references`, §8.3).
+10. **Server-side authorization only.** Client-side filtering is never a security control.
+11. **Every privileged write is audited** (v5.0): role grants, permission changes, escalation-rule
+    changes, representative-profile edits and tiered-admin appointments are recorded in
+    `audit_logs`.
+12. **Representative identity is never inferred** (v5.0): the new-term workflow requires an
+    explicit `representative_profile_id` or an explicit `new_profile`, with a duplicate check on
+    the latter (§7.1).
+13. **No third-party integrations in this scope** (v5.0): no live Election Commission feed, no
+    SMS/push delivery yet, no payment or government transaction APIs.
 
 ---
 
 ## 4. Schema inventory
 
-| Group                                 | Tables                                                                                                                                                                                                                                                                                                                                                         |  Count |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -----: |
-| Location hierarchy (§5)               | `states`, `districts`, `cities` (NEW v2.0); `wards`, `localities` (MODIFIED v2.0)                                                                                                                                                                                                                                                                              |      5 |
-| Representation (§6)                   | `election_terms`, `representative_profiles`, `ward_representative_terms`, `representative_office_users` (NEW v3.0)                                                                                                                                                                                                                                             |      4 |
-| Carried forward from v1.0 (§8)        | `users`, `user_ward_roles` (MODIFIED v3.1), `auth_sessions`, `otp_challenges`, `issue_categories`, `issues`, `issue_media`, `issue_events`, `departments`, `issue_references`, `updates`, `events`, `event_rsvps`, `schemes`, `library_items`, `opportunities`, `ideas`, `idea_votes`, `polls`, `poll_options`, `poll_votes`, `report_snapshots`, `audit_logs` |     23 |
-| Deep-research pass (§9)               | `issue_ratings`, `issue_links`, `escalation_rules`, `issue_escalations`, `user_consents`, `data_deletion_requests`, `device_tokens`, `notification_preferences`, `feature_flags`, `ward_feature_flags`, `invites` (NEW v2.0)                                                                                                                                   |     11 |
-| Roles and permissions catalog (§13.5) | `roles`, `permissions`, `role_permissions` (NEW v4.0)                                                                                                                                                                                                                                                                                                          |      3 |
-| **Required tables**                   |                                                                                                                                                                                                                                                                                                                                                                | **46** |
-| Optional (§13.5.4)                    | `user_permission_overrides` (NEW v4.0, **OPTIONAL**)                                                                                                                                                                                                                                                                                                           |      1 |
-| **RETIRED — do not implement**        | `ward_representatives` (v2.0 flat table, replaced in v3.0 by `ward_representative_terms` + `representative_profiles`)                                                                                                                                                                                                                                          |      — |
+| Group                                                  | Tables                                                                                                                                                                                                                                                                                                                                                               |  Count |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -----: |
+| Location hierarchy (§5)                                | `states`, `districts`, `cities` (NEW v2.0); `wards`, `localities` (MODIFIED v2.0)                                                                                                                                                                                                                                                                                    |      5 |
+| Representation (§6)                                    | `election_terms`, `representative_profiles`, `ward_representative_terms`, `representative_office_users` (NEW v3.0)                                                                                                                                                                                                                                                   |      4 |
+| Core platform tables (§8), "carried forward from v1.0" | `users`, `user_ward_roles` (MODIFIED v3.1, v5.0), `auth_sessions`, `otp_challenges`, `issue_categories`, `issues`, `issue_media`, `issue_events`, `departments`, `issue_references`, `updates`, `events`, `event_rsvps`, `schemes`, `library_items`, `opportunities`, `ideas`, `idea_votes`, `polls`, `poll_options`, `poll_votes`, `report_snapshots`, `audit_logs` |     23 |
+| Additional platform tables (§9), "deep-research pass"  | `issue_ratings`, `issue_links`, `escalation_rules`, `issue_escalations`, `user_consents`, `data_deletion_requests`, `device_tokens`, `notification_preferences`, `feature_flags`, `ward_feature_flags`, `invites` (NEW v2.0)                                                                                                                                         |     11 |
+| Roles and permissions (§13.5)                          | `roles`, `permissions`, `role_permissions`, `user_permission_overrides` (NEW v4.0; constraint fixed v5.0), `ward_role_permission_overrides` (**NEW v5.0**)                                                                                                                                                                                                           |      5 |
+| **Total**                                              |                                                                                                                                                                                                                                                                                                                                                                      | **48** |
+| **RETIRED — do not implement**                         | `ward_representatives` (v2.0 flat table, replaced in v3.0 by `ward_representative_terms` + `representative_profiles`)                                                                                                                                                                                                                                                |      — |
 
-> `wards` and `localities` existed in v1.0 and are counted under the hierarchy group because v2.0
-> modified them. The source's "23 tables carried forward" count (corrected in v3.1 from v3.0's 22) excludes them.
+> `wards` and `localities` existed in v1.0 and are counted under the hierarchy group. The source's
+> "23 core tables" count (corrected in v3.1 from v3.0's 22) excludes them.
+>
+> v4.0 called `user_permission_overrides` optional. **v5.0 no longer does:** it lists the table
+> with a fixed constraint and makes it tier 1 of permission resolution (§13.5).
 
 ---
 
@@ -356,7 +372,7 @@ log can distinguish "the Parshad did this personally" from "their office did thi
 behalf".
 
 **How they authorise (resolved in v3.1):** both roles get a **real `user_ward_roles` row** with
-`election_term_id` set to the ward's current active term (§8.1, §13.3). Access is **not** derived
+`election_term_id` set to the ward's current active term (§8.1). Access is **not** derived
 by joining through `representative_profiles` / `representative_office_users` on each request.
 
 | Action                                                                                | Writes (same transaction)                                                                                                                                                                    |
@@ -366,6 +382,9 @@ by joining through `representative_profiles` / `representative_office_users` on 
 
 Division of responsibility: `representative_office_users` = "who + what title, for the UI and
 audit trail"; `user_ward_roles` = "what can this user actually do, checked by every guard".
+
+v5.0 also adds location-tiered admin roles (`state_admin`, `district_admin`, `ulb_admin`). They
+are **not** part of the representation model; see §13.6.
 
 ---
 
@@ -389,9 +408,22 @@ history, which would make old citizen complaints or notices disappear.
 
 ### 7.1 New-term workflow — `POST /wards/:id/elections/new-term`
 
-Run by a ward admin or platform admin. The body accepts **either** `representative_profile_id`
-(re-elected or returning person; profile reused) **or** new person details (creates a new
-`representative_profiles` row). **In one transaction:**
+Run by a ward admin or platform admin.
+
+**Explicit identity, never inferred (RESOLVED in v5.0).** The caller must pass the representative's
+identity in exactly one of two modes. The API **never** guesses by matching name or mobile number
+("automatic fuzzy-matching on contact details is how duplicates and mismatches actually happen"):
+
+| Mode                                              | Behaviour                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `representative_profile_id` (existing person)     | Used for **any** re-appearance of a known person, with or without a linked login, re-elected to the same ward or elected to a different one after a non-consecutive term. The new `ward_representative_terms` row points at this existing profile; **nothing about the profile (including `linked_user_id`) is touched.** |
+| `new_profile: {full_name, …}` (never seen before) | Creates a new `representative_profiles` row. **If the submitted contact details (mobile/email) match an existing profile's linked user, the API rejects with `409` "possible duplicate — did you mean profile :id?"** instead of silently creating a second profile for the same person.                                  |
+
+An admin who isn't sure whether someone already has a profile uses
+`GET /representative-profiles?search=` (by name/mobile) first, then passes the correct
+`representative_profile_id`.
+
+**In one transaction:**
 
 1. Close any current term: `election_terms.status → completed`,
    `ward_representative_terms.is_current → false`.
@@ -402,9 +434,6 @@ Run by a ward admin or platform admin. The body accepts **either** `representati
    are always kept in sync".
 4. Create the new `election_terms` row and its `ward_representative_terms` row.
 
-⚠️ Whether the new-term workflow also creates the incoming term's `ward_representative` row when
-the representative has a `linked_user_id` is not stated (§17).
-
 ### 7.2 Early close — `POST /wards/:id/elections/close-term`
 
 Explicit early close of the active term (e.g. resignation) **without** naming a successor. The
@@ -413,12 +442,16 @@ one transaction; v3.1 §2.5). The ward
 is temporarily left **without a current representative**. The data model allows this: no row
 with `is_current = true` and no `active` term.
 
-### 7.3 Representative endpoints after v3.0
+### 7.3 Representative endpoints
 
-`GET`/`PUT /wards/:id/representative` and `GET /wards/:id/representative/history` keep their v2.0
-URLs but read and write through `ward_representative_terms` + `representative_profiles`.
-`/wards/:id/representative` always resolves to the `ward_representative_terms` row with
-`is_current = true`.
+- `GET /wards/:id/representative` always resolves to the current term (`ward_representative_terms`
+  row with `is_current = true`).
+- **`PUT /wards/:id/representative` is deprecated** (v5.0) in favour of
+  `POST /wards/:id/elections/new-term`. It is kept for read-compatibility.
+- `GET /wards/:id/representative/history` lists past representatives.
+- `GET /representative-profiles?search=` (**NEW v5.0**) looks up an existing profile before
+  choosing a new-term mode. `GET /representative-profiles/:id` returns a person's full history
+  across all terms and wards.
 
 🔶 **FUTURE:** a scheduled reminder ahead of `term_end_date` (§16.5).
 
@@ -429,7 +462,8 @@ URLs but read and write through `ward_representative_terms` + `representative_pr
 The source lists these **23** tables as carried over from v1.0 (v3.1 corrected v3.0's count of 22:
 `user_ward_roles` had been dropped from the list by omission). All are structurally unchanged
 except `report_snapshots` (one nullable FK added in v3.0) and `user_ward_roles` (`election_term_id`
-added in v3.1). Column types and nullability are not
+added in v3.1; location scope columns, `NULLS NOT DISTINCT` and a role/scope `CHECK` added in
+v5.0). Column types and nullability are not
 stated for most columns (see legend).
 
 ### 8.1 Identity and authentication
@@ -447,36 +481,56 @@ stated for most columns (see legend).
 | `created_at` | —    |      |                          |
 | `updated_at` | —    |      |                          |
 
-#### `user_ward_roles` — v1.0, MODIFIED (v3.1)
+#### `user_ward_roles` — v1.0, MODIFIED (v3.1, v5.0)
 
-**The authorization table every role check goes through.** API middleware queries it on every
-protected request (unchanged since v1.0). v1.0 definition: `id UUID PK; user_id FK; ward_id FK;
-role; created_at; UNIQUE(user_id, ward_id, role)`. v3.1 restores that definition and adds
-`election_term_id`.
+**The table every authorization check goes through, for every role.** API middleware queries it
+on every protected request. v1.0 definition: `id UUID PK; user_id FK; ward_id FK; role;
+created_at; UNIQUE(user_id, ward_id, role)`. v3.1 added `election_term_id`. **v5.0 extends it to
+scope roles across the full location hierarchy** (`city_id`, `district_id`, `state_id`) and fixes
+uniqueness with `NULLS NOT DISTINCT`.
 
-| Column             | Type | Null | Constraints / notes                                                                                                                                                                                                   |
-| ------------------ | ---- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`               | UUID |      | PK                                                                                                                                                                                                                    |
-| `user_id`          | —    |      | FK → `users`                                                                                                                                                                                                          |
-| `ward_id`          | —    | NULL | FK → `wards`. **`NULL` only for `platform_admin`**, whose access is cross-ward by definition.                                                                                                                         |
-| `role`             | —    |      | One of: `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`, `platform_admin`. 🔶 Recommended FK → `roles.key` (v4.0, §13.5).                                                             |
-| `election_term_id` | —    | NULL | FK → `election_terms`. **REQUIRED (non-null) when `role IN ('ward_representative', 'ward_rep_office')`; `NULL` for every other role** (those roles are permanent, not tied to an electoral cycle). **Added in v3.1.** |
-| `created_at`       | —    |      |                                                                                                                                                                                                                       |
-|                    |      |      | **UNIQUE(`user_id`, `ward_id`, `role`, `election_term_id`)** ⚠️ see §11.7 on `NULL` handling                                                                                                                          |
+| Column             | Type | Null | Constraints / notes                                                                                                    |
+| ------------------ | ---- | ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| `id`               | UUID |      | PK                                                                                                                     |
+| `user_id`          | —    |      | FK → `users`                                                                                                           |
+| `ward_id`          | —    | NULL | FK → `wards`. Scope for ward roles.                                                                                    |
+| `city_id`          | —    | NULL | FK → `cities`. **NEW v5.0.** Scope for `ulb_admin`.                                                                    |
+| `district_id`      | —    | NULL | FK → `districts`. **NEW v5.0.** Scope for `district_admin`.                                                            |
+| `state_id`         | —    | NULL | FK → `states`. **NEW v5.0.** Scope for `state_admin`.                                                                  |
+| `role`             | —    |      | One of the nine role keys (§11.6). 🔶 Recommended FK → `roles.key`.                                                    |
+| `election_term_id` | —    | NULL | FK → `election_terms`. **REQUIRED for `ward_representative` / `ward_rep_office`; `NULL` for every other role** (v3.1). |
+| `created_at`       | —    |      |                                                                                                                        |
+|                    |      |      | **`UNIQUE NULLS NOT DISTINCT (user_id, ward_id, city_id, district_id, state_id, role, election_term_id)`** (v5.0)      |
+|                    |      |      | **`CHECK`**: which scope column may be set per role (table below)                                                      |
 
-Row shape per role (v3.1 §6):
+**Valid role → scope combinations** (the `CHECK` constraint, v5.0). Exactly one scope column is
+non-`NULL` for a row, or none for `citizen` / `platform_admin`. This is **enforced by a database
+`CHECK` constraint, not application code alone.**
 
-| Role                  | `ward_id` | `election_term_id`  | Row?                                                                                                       |
-| --------------------- | --------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `citizen`             | —         | —                   | **Typically no row at all.** Access to their own data is via `issues.citizen_id`, not a granted ward role. |
-| `ward_staff`          | set       | `NULL` (permanent)  | Yes                                                                                                        |
-| `ward_admin`          | set       | `NULL` (permanent)  | Yes                                                                                                        |
-| `ward_representative` | set       | current active term | Yes (required)                                                                                             |
-| `ward_rep_office`     | set       | current active term | Yes (required)                                                                                             |
-| `platform_admin`      | `NULL`    | `NULL`              | Yes                                                                                                        |
+| Role                                     | Non-NULL scope column(s)                                       | `election_term_id`        |
+| ---------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| `citizen`                                | none (`ward_id`/`city_id`/`district_id`/`state_id` all `NULL`) | `NULL`                    |
+| `platform_admin`                         | none                                                           | `NULL`                    |
+| `state_admin`                            | `state_id`                                                     | `NULL`                    |
+| `district_admin`                         | `district_id`                                                  | `NULL`                    |
+| `ulb_admin`                              | `city_id`                                                      | `NULL`                    |
+| `ward_staff`, `ward_admin`               | `ward_id`                                                      | `NULL`                    |
+| `ward_representative`, `ward_rep_office` | `ward_id`                                                      | **REQUIRED** (non-`NULL`) |
 
-Lifecycle of term-scoped rows: created with office grants / login linking (§6.5); deleted when the
-term closes (§7).
+Row lifecycle:
+
+- **`citizen`:** a row (all scope columns `NULL`, `election_term_id` `NULL`) is **created
+  automatically for every user at account creation (first successful OTP verify)**. This is the
+  **only** automatically created row. It replaces v3.1's "citizens typically have no row" and means
+  authorization runs the same lookup for every user, with no "if no row, assume citizen" branch
+  (v5.0).
+- **Every other role** is granted explicitly by an admin action: office grants and login linking
+  (§6.5), team/role changes, and tiered-admin appointments (§13.6).
+- **Term-scoped rows** (`ward_representative`, `ward_rep_office`) are deleted when their term
+  closes (§7).
+
+`UNIQUE NULLS NOT DISTINCT` requires **PostgreSQL 15+**. The specification states the platform
+targets **PostgreSQL 16.x** (§16).
 
 #### `auth_sessions` — v1.0
 
@@ -814,15 +868,15 @@ Closes PRD §6's "duplicate/related issue linking".
 
 ### 9.3 `escalation_rules` — NEW (v2.0)
 
-| Column             | Type | Null | Constraints / notes                                       |
-| ------------------ | ---- | ---- | --------------------------------------------------------- |
-| `id`               | UUID |      | PK                                                        |
-| `ward_id`          | —    | NULL | **`NULL` = platform default rule**                        |
-| `category_id`      | —    | NULL |                                                           |
-| `ageing_days`      | INT  |      |                                                           |
-| `escalate_to_role` | —    |      | Role value. 🔶 Recommended FK → `roles.key` (v4.0, §13.5) |
-| `is_active`        | —    |      |                                                           |
-| `created_at`       | —    |      |                                                           |
+| Column             | Type | Null | Constraints / notes                                                        |
+| ------------------ | ---- | ---- | -------------------------------------------------------------------------- |
+| `id`               | UUID |      | PK                                                                         |
+| `ward_id`          | —    | NULL | **`NULL` = platform default rule**                                         |
+| `category_id`      | —    | NULL |                                                                            |
+| `ageing_days`      | INT  |      |                                                                            |
+| `escalate_to_role` | —    |      | Role key (one of the nine, §11.6). 🔶 Recommended FK → `roles.key` (§13.5) |
+| `is_active`        | —    |      |                                                                            |
+| `created_at`       | —    |      |                                                                            |
 
 Rule lookup is ward-scoped and **falls back to the platform default** (`GET /escalation-rules`).
 Closes PRD §6 / TRD §1 "ageing buckets" and "configurable escalation targets".
@@ -915,20 +969,20 @@ See §14.6.
 
 ### 9.11 `invites` — NEW (v2.0)
 
-See §13.4.
+See §13.7.
 
-| Column        | Type | Null | Constraints / notes                                       |
-| ------------- | ---- | ---- | --------------------------------------------------------- |
-| `id`          | UUID |      | PK                                                        |
-| `ward_id`     | —    |      | FK → `wards`                                              |
-| `mobile`      | —    |      |                                                           |
-| `role`        | —    |      | Role value. 🔶 Recommended FK → `roles.key` (v4.0, §13.5) |
-| `invited_by`  | —    |      | FK (→ `users`, by name)                                   |
-| `token_hash`  | —    |      | Hash only                                                 |
-| `status`      | —    |      | One of: `pending`, `accepted`, `expired`, `revoked`       |
-| `expires_at`  | —    |      |                                                           |
-| `accepted_at` | —    | NULL |                                                           |
-| `created_at`  | —    |      |                                                           |
+| Column        | Type | Null | Constraints / notes                                                        |
+| ------------- | ---- | ---- | -------------------------------------------------------------------------- |
+| `id`          | UUID |      | PK                                                                         |
+| `ward_id`     | —    |      | FK → `wards`                                                               |
+| `mobile`      | —    |      |                                                                            |
+| `role`        | —    |      | Role key (one of the nine, §11.6). 🔶 Recommended FK → `roles.key` (§13.5) |
+| `invited_by`  | —    |      | FK (→ `users`, by name)                                                    |
+| `token_hash`  | —    |      | Hash only                                                                  |
+| `status`      | —    |      | One of: `pending`, `accepted`, `expired`, `revoked`                        |
+| `expires_at`  | —    |      |                                                                            |
+| `accepted_at` | —    | NULL |                                                                            |
+| `created_at`  | —    |      |                                                                            |
 
 ---
 
@@ -936,14 +990,16 @@ See §13.4.
 
 As stated in source §5 (v3.0, v3.1, v4.0):
 
-- `user_ward_roles` N→1 `users`, N→1 `wards` (nullable), N→1 `election_terms` (nullable): "the
-  single table every authorization check queries, for every role" (v3.1).
+- `user_ward_roles` N→1 `users`; N→1 **exactly one of** `wards` / `cities` / `districts` /
+  `states`, **or none**; N→1 `election_terms` (nullable): "the single table every authorization
+  check queries, for every role" (v5.0).
+- `roles` 1→N `ward_role_permission_overrides` N→1 `permissions`, additionally scoped N→1 `wards`
+  (v5.0).
 - `roles` 1→N `role_permissions` N→1 `permissions`: the standard many-to-many join for RBAC
   (v4.0).
 - `user_ward_roles.role`, `escalation_rules.escalate_to_role`, `invites.role` → `roles.key`: 🔶
   recommended new FK on all three, additive and non-breaking (v4.0).
-- `user_permission_overrides` N→1 `users`, N→1 `wards` (nullable), N→1 `permissions` (v4.0,
-  optional).
+- `user_permission_overrides` N→1 `users`, N→1 `wards` (nullable), N→1 `permissions`.
 - `states` 1→N `districts` 1→N `cities` 1→N `wards`: the normalised replacement for the old flat
   `state`/`district`/`ulb_name` strings.
 - `wards` 1→N `election_terms` (full electoral history); `election_terms` 1→1
@@ -1011,12 +1067,18 @@ erDiagram
     users |o--o| representative_profiles : "linked login"
     wards ||--o{ invites : issues
     users ||--o{ user_ward_roles : "is granted"
-    wards |o--o{ user_ward_roles : "scopes (NULL = platform_admin)"
+    wards |o--o{ user_ward_roles : "ward scope"
+    cities |o--o{ user_ward_roles : "ulb_admin scope"
+    districts |o--o{ user_ward_roles : "district_admin scope"
+    states |o--o{ user_ward_roles : "state_admin scope"
     election_terms |o--o{ user_ward_roles : "term-scoped roles"
     roles ||--o{ user_ward_roles : "role (recommended FK)"
     roles ||--o{ role_permissions : grants
     permissions ||--o{ role_permissions : "granted by"
-    users ||--o{ user_permission_overrides : "has (optional)"
+    users ||--o{ user_permission_overrides : has
+    roles ||--o{ ward_role_permission_overrides : "ward deviation"
+    permissions ||--o{ ward_role_permission_overrides : overrides
+    wards ||--o{ ward_role_permission_overrides : "ward policy"
     permissions ||--o{ user_permission_overrides : overrides
     wards |o--o{ user_permission_overrides : "scopes (NULL = global)"
 ```
@@ -1037,26 +1099,28 @@ Every table has `id UUID PK` **except**:
 
 ### 11.2 Unique constraints
 
-| Table                         | Unique constraint                                       |
-| ----------------------------- | ------------------------------------------------------- |
-| `states`                      | `lgd_state_code`                                        |
-| `districts`                   | `lgd_district_code`                                     |
-| `cities`                      | `lgd_ulb_code`                                          |
-| `wards`                       | `lgd_ward_code` (nullable)                              |
-| `users`                       | `mobile`                                                |
-| `representative_profiles`     | `linked_user_id` (nullable)                             |
-| `election_terms`              | `(ward_id, term_number)`                                |
-| `ward_representative_terms`   | `election_term_id`                                      |
-| `representative_office_users` | `(ward_representative_term_id, user_id)`                |
-| `event_rsvps`                 | `(event_id, user_id)`                                   |
-| `idea_votes`                  | `(idea_id, user_id)`                                    |
-| `poll_votes`                  | `(poll_id, user_id)`                                    |
-| `issue_ratings`               | `issue_id`                                              |
-| `issue_links`                 | `(issue_id, linked_issue_id)`                           |
-| `notification_preferences`    | `user_id`                                               |
-| `feature_flags`               | `key`                                                   |
-| `user_ward_roles`             | `(user_id, ward_id, role, election_term_id)` (⚠️ §11.7) |
-| `permissions`                 | `key`                                                   |
+| Table                            | Unique constraint                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `states`                         | `lgd_state_code`                                                                                             |
+| `districts`                      | `lgd_district_code`                                                                                          |
+| `cities`                         | `lgd_ulb_code`                                                                                               |
+| `wards`                          | `lgd_ward_code` (nullable)                                                                                   |
+| `users`                          | `mobile`                                                                                                     |
+| `representative_profiles`        | `linked_user_id` (nullable)                                                                                  |
+| `election_terms`                 | `(ward_id, term_number)`                                                                                     |
+| `ward_representative_terms`      | `election_term_id`                                                                                           |
+| `representative_office_users`    | `(ward_representative_term_id, user_id)`                                                                     |
+| `event_rsvps`                    | `(event_id, user_id)`                                                                                        |
+| `idea_votes`                     | `(idea_id, user_id)`                                                                                         |
+| `poll_votes`                     | `(poll_id, user_id)`                                                                                         |
+| `issue_ratings`                  | `issue_id`                                                                                                   |
+| `issue_links`                    | `(issue_id, linked_issue_id)`                                                                                |
+| `notification_preferences`       | `user_id`                                                                                                    |
+| `feature_flags`                  | `key`                                                                                                        |
+| `user_ward_roles`                | **`NULLS NOT DISTINCT`** `(user_id, ward_id, city_id, district_id, state_id, role, election_term_id)` (v5.0) |
+| `user_permission_overrides`      | **`NULLS NOT DISTINCT`** `(user_id, ward_id, permission_id)` (v5.0)                                          |
+| `ward_role_permission_overrides` | **`NULLS NOT DISTINCT`** `(ward_id, role_key, permission_id)` (v5.0)                                         |
+| `permissions`                    | `key`                                                                                                        |
 
 ### 11.3 Partial unique indexes (business invariants)
 
@@ -1067,31 +1131,31 @@ Every table has `id UUID PK` **except**:
 
 ### 11.4 Check constraints
 
-| Table             | Constraint                                                                                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `issue_ratings`   | `rating` SMALLINT `CHECK` 1–5                                                                                                                                                              |
-| `user_ward_roles` | `election_term_id` **required** when `role IN ('ward_representative', 'ward_rep_office')`, `NULL` otherwise (rule stated in v3.1; enforcing it as a `CHECK` is the natural implementation) |
-| `user_ward_roles` | `ward_id` `NULL` **only** for `platform_admin` (rule stated in v3.1)                                                                                                                       |
+| Table             | Constraint                                                                                                                                                                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue_ratings`   | `rating` SMALLINT `CHECK` 1–5                                                                                                                                                                                                                                                                              |
+| `user_ward_roles` | Role → scope `CHECK` (v5.0, §8.1): exactly one of `ward_id` / `city_id` / `district_id` / `state_id` is set according to the role, or none for `citizen` / `platform_admin`; `election_term_id` required for `ward_representative` / `ward_rep_office` and `NULL` otherwise. **Enforced in the database.** |
 
-### 11.5 Indexes (source §5 "New indexes", v3.0 + v3.1 + v4.0)
+### 11.5 Indexes (v3.0–v5.0)
 
-| Index                                                                  | Purpose                                                         |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `wards(city_id)`                                                       | Hierarchy traversal / "wards in a city"                         |
-| `wards(reservation_category)`                                          | Filtering by seat reservation                                   |
-| `wards(lgd_ward_code)`                                                 | LGD reconciliation                                              |
-| `election_terms(ward_id, term_number)` UNIQUE                          | Term ordering per ward                                          |
-| `election_terms(ward_id) WHERE status = 'active'` partial UNIQUE       | One active term                                                 |
-| `ward_representative_terms(ward_id) WHERE is_current` partial UNIQUE   | One current representative                                      |
-| `ward_representative_terms(representative_profile_id)`                 | "All terms this person has served" (re-election reuse flow)     |
-| `representative_office_users(ward_representative_term_id, is_active)`  | Active office users for a term                                  |
-| `issue_links(issue_id)`, `issue_links(linked_issue_id)`                | Link lookup in both directions                                  |
-| `issue_escalations(issue_id, escalated_at DESC)`                       | Latest escalations per issue                                    |
-| `device_tokens(user_id, is_active)`                                    | Active devices per user                                         |
-| `user_ward_roles(user_id, ward_id)`                                    | **The hot path every request authorization check hits** (v3.1)  |
-| `user_ward_roles(election_term_id) WHERE election_term_id IS NOT NULL` | Partial index for the term-close revocation `DELETE` (v3.1)     |
-| `role_permissions(permission_id)`                                      | "Which roles can do X" (admin permission-matrix UI) (v4.0)      |
-| `user_permission_overrides(user_id, ward_id)`                          | Override lookup after `role_permissions` (v4.0, optional table) |
+| Index                                                                                                      | Purpose                                                                             |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `wards(city_id)`                                                                                           | Hierarchy traversal / "wards in a city"                                             |
+| `wards(reservation_category)`                                                                              | Filtering by seat reservation                                                       |
+| `wards(lgd_ward_code)`                                                                                     | LGD reconciliation                                                                  |
+| `election_terms(ward_id, term_number)` UNIQUE                                                              | Term ordering per ward                                                              |
+| `election_terms(ward_id) WHERE status = 'active'` partial UNIQUE                                           | One active term                                                                     |
+| `ward_representative_terms(ward_id) WHERE is_current` partial UNIQUE                                       | One current representative                                                          |
+| `ward_representative_terms(representative_profile_id)`                                                     | "All terms this person has served" (re-election reuse flow)                         |
+| `representative_office_users(ward_representative_term_id, is_active)`                                      | Active office users for a term                                                      |
+| `issue_links(issue_id)`, `issue_links(linked_issue_id)`                                                    | Link lookup in both directions                                                      |
+| `issue_escalations(issue_id, escalated_at DESC)`                                                           | Latest escalations per issue                                                        |
+| `device_tokens(user_id, is_active)`                                                                        | Active devices per user                                                             |
+| `user_ward_roles(user_id, ward_id)`, `(user_id, city_id)`, `(user_id, district_id)`, `(user_id, state_id)` | **The hot paths every request authorization check hits, one per scope type** (v5.0) |
+| `user_ward_roles(election_term_id) WHERE election_term_id IS NOT NULL`                                     | Partial index for the term-close revocation `DELETE` (v3.1)                         |
+| `role_permissions(permission_id)`                                                                          | "Which roles can do X" (admin permission-matrix UI) (v4.0)                          |
+| `ward_role_permission_overrides(ward_id, role_key)`                                                        | Ward-level role override lookup (v5.0)                                              |
+| `user_permission_overrides(user_id, ward_id)`                                                              | User-level override lookup                                                          |
 
 **All v1.0 indexes are retained unchanged**, e.g. `issues(ward_id, status, created_at DESC)`. The
 source cites this one as an example and does not reproduce the full v1.0 index list ⚠️ (§17).
@@ -1101,19 +1165,19 @@ source cites this one as an example and does not reproduce the full v1.0 index l
 The source lists these allowed values. It does not say whether to implement them as PostgreSQL
 enums or `CHECK` constraints (implementation decision).
 
-| Column                                                                                   | Values                                                                                                                                             |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cities.ulb_type`                                                                        | `municipal_corporation`, `municipal_council`, `nagar_palika_parishad`, `nagar_panchayat`, `cantonment_board`, `other`                              |
-| `wards.reservation_category`                                                             | `general`, `sc`, `st`, `obc`, `women`, `sc_women`, `st_women`, `obc_women` (nullable)                                                              |
-| `election_terms.status`                                                                  | `upcoming`, `active`, `completed`                                                                                                                  |
-| `issues.status`                                                                          | `submitted`, `verified`, `assigned`, `in_progress`, `resolved`, `reopened`, `rejected` (§12)                                                       |
-| `issue_links.link_type`                                                                  | `duplicate`, `related`                                                                                                                             |
-| `user_consents.consent_type`                                                             | `privacy_notice`, `terms`, `location_access`                                                                                                       |
-| `data_deletion_requests.status`                                                          | `pending`, `completed`, `rejected`                                                                                                                 |
-| `device_tokens.platform`                                                                 | `android`, `ios`, `web`                                                                                                                            |
-| `invites.status`                                                                         | `pending`, `accepted`, `expired`, `revoked`                                                                                                        |
-| `user_ward_roles.role`, `escalation_rules.escalate_to_role`, `invites.role`, `roles.key` | `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`, `platform_admin` (v4.0: `roles` is seeded with exactly these six) |
-| `user_permission_overrides.effect`                                                       | `grant`, `deny`                                                                                                                                    |
+| Column                                                                                                                              | Values                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cities.ulb_type`                                                                                                                   | `municipal_corporation`, `municipal_council`, `nagar_palika_parishad`, `nagar_panchayat`, `cantonment_board`, `other`                                                      |
+| `wards.reservation_category`                                                                                                        | `general`, `sc`, `st`, `obc`, `women`, `sc_women`, `st_women`, `obc_women` (nullable)                                                                                      |
+| `election_terms.status`                                                                                                             | `upcoming`, `active`, `completed`                                                                                                                                          |
+| `issues.status`                                                                                                                     | `submitted`, `verified`, `assigned`, `in_progress`, `resolved`, `reopened`, `rejected` (§12)                                                                               |
+| `issue_links.link_type`                                                                                                             | `duplicate`, `related`                                                                                                                                                     |
+| `user_consents.consent_type`                                                                                                        | `privacy_notice`, `terms`, `location_access`                                                                                                                               |
+| `data_deletion_requests.status`                                                                                                     | `pending`, `completed`, `rejected`                                                                                                                                         |
+| `device_tokens.platform`                                                                                                            | `android`, `ios`, `web`                                                                                                                                                    |
+| `invites.status`                                                                                                                    | `pending`, `accepted`, `expired`, `revoked`                                                                                                                                |
+| `user_ward_roles.role`, `escalation_rules.escalate_to_role`, `invites.role`, `roles.key`, `ward_role_permission_overrides.role_key` | **Nine role keys (v5.0):** `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`, `ulb_admin`, `district_admin`, `state_admin`, `platform_admin` |
+| `user_permission_overrides.effect`, `ward_role_permission_overrides.effect`                                                         | `grant`, `deny`                                                                                                                                                            |
 
 ### 11.7 Other integrity rules
 
@@ -1123,14 +1187,13 @@ enums or `CHECK` constraints (implementation decision).
   never written directly.
 - **Issue status transitions** are restricted to the state machine (§12).
 - **`issue_ratings`** only after `resolved`.
-- **`NULL` in `user_ward_roles` uniqueness** ⚠️: PostgreSQL treats `NULL`s as distinct in a plain
-  `UNIQUE` constraint, so `UNIQUE(user_id, ward_id, role, election_term_id)` alone does **not**
-  prevent duplicate permanent rows (`election_term_id IS NULL`) or duplicate `platform_admin` rows
-  (`ward_id IS NULL`). The intended uniqueness needs `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+)
-  or equivalent partial unique indexes. This is an implementation detail of the stated
-  constraint, to be confirmed (§17).
+- **`NULL` handling in unique keys** (RESOLVED v5.0): PostgreSQL's default `UNIQUE` treats every
+  `NULL` as distinct, so the pre-v5.0 key did not stop duplicate permanent or platform-wide grants.
+  v5.0 declares **`UNIQUE NULLS NOT DISTINCT`** on `user_ward_roles`, `user_permission_overrides`
+  and `ward_role_permission_overrides` ("everywhere a nullable column sits inside a uniqueness
+  key"). Requires PostgreSQL 15+.
 - **Role columns → `roles.key`** 🔶: the recommended FKs only add validation. Any row satisfying
-  the current six-value set already satisfies them.
+  the nine seeded role keys already satisfies them.
 
 ---
 
@@ -1182,6 +1245,10 @@ Only the listed "Allowed next" transitions are permitted. The state machine cont
    (v3.1, §7).
 7. **Changing a role's permission set** (`PATCH /roles/:key/permissions`) is platform-admin only
    and **heavily audited** in `audit_logs` (v4.0, §13.5).
+8. **First successful OTP verify creates the user's `citizen` row in `user_ward_roles`** (v5.0,
+   §8.1).
+9. **Every privileged write is recorded in `audit_logs`**: role grants, permission changes,
+   escalation-rule changes, representative-profile edits and tiered-admin appointments (v5.0).
 
 ### 12.2 Issue endpoints and the transitions they drive
 
@@ -1214,96 +1281,100 @@ implied by their names and is **not** stated verbatim in the source.
   `POST /auth/logout` revokes the session.
 - **Identity:** `users.mobile` is UNIQUE.
 
-### 13.2 Authorization flow (v4.0 §6)
+### 13.2 Authorization flow (v5.0 §4.4)
 
-Authorization is enforced in **API middleware plus service/repository queries** (unchanged v1.0
-principle). **Client-side filtering is never a security control.** The middleware's job:
+Authorization is enforced **server-side** in API middleware plus service/repository queries.
+**Client-side filtering is never a security control.** Full resolution:
 
 ```text
-1. Look up the caller's role(s) in user_ward_roles
-   (respecting election_term_id currency for term-scoped roles, v3.1 §2.5)
-2. Resolve effective permissions via role_permissions
-3. Apply any user_permission_overrides (optional table)
-4. Allow / deny
+1. Identify the caller's role(s) via user_ward_roles
+   (respecting election_term_id currency for ward_representative / ward_rep_office)
+2. Take each role's PLATFORM DEFAULT from role_permissions
+3. Apply any ward_role_permission_overrides for that ward + role
+4. Apply any user_permission_overrides for that user
+   (ward-specific first, then global; expired rows skipped)
+5. Allow / deny
 ```
 
-Design intent (v3.1): **one uniform query shape for every role**: "does a live `user_ward_roles`
-row exist for this user, this ward, and (if the role requires it) the ward's current active term".
-No special-case join path through `representative_profiles` / `representative_office_users`.
+One uniform query shape for every role, **including citizens**, who now always have a row
+(§8.1). No special-case join through `representative_profiles` / `representative_office_users`,
+and no "if no row, assume citizen" branch.
 
 ### 13.3 `user_ward_roles`
 
-Defined in §8.1 (v1.0, MODIFIED v3.1). It remains the source of **which role a user holds where**.
-v4.0 does not change its columns or values.
+Defined in §8.1 (v1.0; MODIFIED v3.1 and v5.0): location-scoped role grants with a role → scope
+`CHECK`, term scoping for the representative roles, and `UNIQUE NULLS NOT DISTINCT`.
 
-### 13.4 Roles and effective access
+### 13.4 Roles (nine, v5.0)
 
-The access shape is **unchanged since v3.0**. v4.0 states that no role gains or loses capability;
-the table in §13.5.3 is now "a restatement of what's actually seeded into `role_permissions`, not
-the only place this information lives".
+| Role key              | Scope (§8.1)     | Who / how granted                                                                                                                    |
+| --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `citizen`             | none             | Every user; **auto-created at first OTP verify**.                                                                                    |
+| `ward_staff`          | `ward_id`        | Ward operations staff; permanent.                                                                                                    |
+| `ward_representative` | `ward_id` + term | The elected person's own login; term-scoped.                                                                                         |
+| `ward_rep_office`     | `ward_id` + term | PA/secretary acting for the representative; term-scoped; every action audited as "office action on behalf of [representative name]". |
+| `ward_admin`          | `ward_id`        | Ward administration; permanent. Appointed by `ulb_admin` (§13.6).                                                                    |
+| `ulb_admin`           | `city_id`        | **NEW v5.0.** Appointed by `district_admin`.                                                                                         |
+| `district_admin`      | `district_id`    | **NEW v5.0.** Appointed by `state_admin`.                                                                                            |
+| `state_admin`         | `state_id`       | **NEW v5.0.** Appointed by `platform_admin`.                                                                                         |
+| `platform_admin`      | none             | Cross-platform; sensitive access only when authorised and audited.                                                                   |
 
-| Role                                            | Access (v3.0/v3.1 §6)                                                                                                                                                                                                                                        | `user_ward_roles` row (v3.1)                      |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| **Citizen** (`citizen`)                         | Own issues/profile; public ward content; ideas/polls/RSVP; own consent and data-deletion requests; own device tokens.                                                                                                                                        | Typically none; own data via `issues.citizen_id`. |
-| **Ward representative** (`ward_representative`) | Same effective access as Ward admin for their own ward by default. Publishing Updates/Events/Schemes is **recommended** to stay routed through ward staff/admin unless a ward configures otherwise (**a product decision, flagged rather than hard-coded**). | Required, `election_term_id` set.                 |
-| **Ward rep office** (`ward_rep_office`)         | Same effective permissions as Ward representative, **scoped to the current active term**; revoked automatically when the term closes. Every action audited as **"office action on behalf of [representative name]"**.                                        | Required, `election_term_id` set.                 |
-| **Ward staff** (`ward_staff`)                   | Assigned issues, verification, field notes/evidence, limited content.                                                                                                                                                                                        | `election_term_id = NULL` (permanent).            |
-| **Ward admin** (`ward_admin`)                   | All ward issues/content/team/reports/settings, including the new-term workflow and managing `representative_office_users` grants.                                                                                                                            | `election_term_id = NULL` (permanent).            |
-| **Platform admin** (`platform_admin`)           | Cross-ward configuration/support, including states/districts/cities master data and `feature_flags`; sensitive access only when authorised and audited.                                                                                                      | `ward_id = NULL`, `election_term_id = NULL`.      |
+`roles.is_system = true` for all nine. The set is still effectively fixed at the application
+layer; fully dynamic custom roles are future work (🔶 §16.9).
 
-### 13.5 Roles and permissions catalog — NEW (v4.0)
+### 13.5 Roles and permissions catalog
 
-Purpose: make "what can this role do" **a queryable fact, not a code fact**. Before v4.0 the answer
-lived only in application code and prose, which fails as soon as a state-specific role variant, a
-read-only support-tier admin, or an audit question ("which permissions did this account have on
-the day of this action") is needed.
+Purpose (v4.0): make "what can this role do" **a queryable fact, not a code fact**, so that
+role variants, support tiers and audit questions ("which permissions did this account have on
+the day of this action") are answerable from data.
 
-**Unchanged by v4.0:** the six role values; `user_ward_roles.role`,
-`escalation_rules.escalate_to_role` and `invites.role` keep **exactly the same column type and
-values**; v3.1's term-scoped authorization model.
+#### 13.5.1 `roles` — NEW (v4.0), nine values (v5.0)
 
-#### 13.5.1 `roles` — NEW (v4.0)
+| Column        | Type    | Null | Constraints / notes                                                                                                                                                   |
+| ------------- | ------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key`         | VARCHAR |      | **PK (natural key).** `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`, `ulb_admin`, `district_admin`, `state_admin`, `platform_admin` |
+| `label`       | —       |      |                                                                                                                                                                       |
+| `description` | —       |      |                                                                                                                                                                       |
+| `is_system`   | BOOLEAN |      | **DEFAULT `true`.** System roles are not deletable via the API; the seam for future custom roles.                                                                     |
+| `created_at`  | —       |      |                                                                                                                                                                       |
 
-| Column        | Type    | Null | Constraints / notes                                                                                                                                                                    |
-| ------------- | ------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `key`         | VARCHAR |      | **PK (natural key).** Values: `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`, `platform_admin`, matching every existing role column's values exactly. |
-| `label`       | —       |      |                                                                                                                                                                                        |
-| `description` | —       |      |                                                                                                                                                                                        |
-| `is_system`   | BOOLEAN |      | **DEFAULT `true`.** All six current roles are system roles, **not deletable via the API**. This flag is the seam for future custom roles (🔶 §16).                                     |
-| `created_at`  | —       |      |                                                                                                                                                                                        |
-
-Why a natural key: it is "deliberately the smallest change that makes roles data-driven". Existing
-columns keep their type and values and gain something to be validated against, instead of every
-table migrating to a new surrogate UUID.
+A natural key is "deliberately the smallest change that makes roles data-driven". Existing role
+columns keep their type and gain something to be validated against (🔶 recommended FK).
 
 #### 13.5.2 `permissions` — NEW (v4.0)
 
-| Column        | Type    | Null | Constraints / notes                                                                    |
-| ------------- | ------- | ---- | -------------------------------------------------------------------------------------- |
-| `id`          | UUID    |      | PK                                                                                     |
-| `key`         | VARCHAR |      | **UNIQUE**, e.g. `issues:assign`, `content:publish`, `team:invite`, `elections:manage` |
-| `module`      | —       |      | Groups related permissions for display, e.g. `issues`, `content`, `team`, `platform`   |
-| `description` | —       |      |                                                                                        |
-| `created_at`  | —       |      |                                                                                        |
+| Column        | Type    | Null | Constraints / notes |
+| ------------- | ------- | ---- | ------------------- |
+| `id`          | UUID    |      | PK                  |
+| `key`         | VARCHAR |      | **UNIQUE**          |
+| `module`      | —       |      | Display grouping    |
+| `description` | —       |      |                     |
+| `created_at`  | —       |      |                     |
 
-**Seed catalog** (starting set; **extend by inserting rows, never by a schema migration**):
+**Permissions catalog (complete, v5.0).** New keys are added by inserting rows, not by schema
+migrations.
 
-| Module      | Permission keys (seed set)                                                                                                                             |
+| Module      | Permission keys                                                                                                                                        |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `issues`    | `issues:create`, `issues:verify`, `issues:assign`, `issues:resolve`, `issues:reject`, `issues:reopen`, `issues:rate`, `issues:link`, `issues:escalate` |
-| `content`   | `content:draft`, `content:publish` (updates/events/schemes/library/opportunities)                                                                      |
+| `content`   | `content:draft`, `content:publish`                                                                                                                     |
 | `community` | `ideas:moderate`, `polls:manage`                                                                                                                       |
 | `team`      | `team:invite`, `team:manage_roles`, `team:remove`                                                                                                      |
 | `ward`      | `ward:configure`, `ward:view_analytics`, `ward:manage_departments`, `ward:manage_categories`                                                           |
 | `elections` | `elections:manage`, `representative_office:manage`                                                                                                     |
 | `reports`   | `reports:export`, `audit:view`                                                                                                                         |
+| `ulb`       | `ulb:manage_wards`, `ulb:manage_admins`, `ulb:view_analytics` (**NEW v5.0**)                                                                           |
+| `district`  | `district:manage_ulbs`, `district:manage_admins`, `district:view_analytics` (**NEW v5.0**)                                                             |
+| `state`     | `state:manage_districts`, `state:manage_admins`, `state:view_analytics` (**NEW v5.0**)                                                                 |
 | `platform`  | `wards:create`, `location_hierarchy:manage`, `feature_flags:manage_platform`, `feature_flags:manage_ward`, `escalation_rules:manage`                   |
 
-> The keys in the `community`, `reports` and `platform` modules don't share their module's name as
-> a prefix (e.g. `ideas:moderate` under `community`, `audit:view` under `reports`). That is how the
-> source lists them.
+`state:manage_districts`, `district:manage_ulbs` and `ulb:manage_wards` mean managing the **admin
+appointments** at the level below (who is `district_admin` / `ulb_admin` / `ward_admin`). They do
+**not** mean editing the states/districts/cities master records, which stays
+`location_hierarchy:manage`, **`platform_admin` only**, "to protect the LGD-aligned directory from
+accidental drift".
 
-#### 13.5.3 `role_permissions` — NEW (v4.0)
+#### 13.5.3 `role_permissions` — NEW (v4.0): the PLATFORM-WIDE DEFAULT per role
 
 | Column          | Type | Null | Constraints / notes                          |
 | --------------- | ---- | ---- | -------------------------------------------- |
@@ -1311,72 +1382,138 @@ table migrating to a new surrogate UUID.
 | `permission_id` | —    |      | FK → `permissions.id`                        |
 |                 |      |      | **PRIMARY KEY(`role_key`, `permission_id`)** |
 
-**Seeded role → permission mapping** (v4.0 §6, verbatim in substance; seeds "roughly their
-current, already-documented access shape"):
+`role_permissions` has no ward column. It is, and remains, a single global default per role;
+per-ward deviation lives in `ward_role_permission_overrides`.
 
-| Role                | Effective permissions (seeded into `role_permissions`)                                                                                                                                                                                                                           |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Citizen             | `issues:create`, `issues:rate`. `ideas:moderate` is **NOT** granted (citizens submit ideas, they don't moderate them). Polls: **vote only**; no permission key needed, since voting is open to any authenticated citizen and is not a permission gate.                           |
-| Ward representative | **Same set as Ward admin**, by default. The v3.1 recommendation that publishing stays routed through staff/admin "is now expressible as simply NOT seeding `content:publish` for this role in a given ward's override, instead of an if-statement in application code" (⚠️ §17). |
-| Ward rep office     | Same as Ward representative, term-scoped per v3.1.                                                                                                                                                                                                                               |
-| Ward staff          | `issues:verify`, `content:draft`. `issues:assign` is **NOT** granted by default.                                                                                                                                                                                                 |
-| Ward admin          | `issues:*`, `content:*`, `team:*`, `ward:*`, `escalation_rules:manage` (**ward-scoped only**), `reports:export`, `audit:view`, `elections:manage`, `representative_office:manage`                                                                                                |
-| Platform admin      | All of the above, plus `wards:create`, `location_hierarchy:manage`, `feature_flags:manage_platform`                                                                                                                                                                              |
+**Seed: concrete keys per role, no wildcards (v5.0 §4.4)**
 
-> ⚠️ `issues:*`, `content:*`, `team:*` and `ward:*` are shorthand. `role_permissions` stores one row
-> per `permission_id`, so the seed must expand them to explicit keys (§17).
+| Role                | `role_permissions` default                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Citizen             | `issues:create`, `issues:rate`. Voting in a poll, submitting an idea and RSVPing to an event are open to any authenticated citizen and are **not permission-gated** (no key exists for them).                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Ward staff          | `issues:verify`, `content:draft`. **Not** `issues:assign` or `issues:reject`: those remain admin decisions; staff do verification and fieldwork on issues already assigned to them.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Ward representative | `issues:create`, `issues:verify`, `issues:assign`, `issues:resolve`, `issues:reject`, `issues:reopen`, `issues:link`, `issues:escalate`, `content:draft`, `ideas:moderate`, `polls:manage`, `team:invite`, `team:manage_roles`, `team:remove`, `ward:configure`, `ward:view_analytics`, `ward:manage_departments`, `ward:manage_categories`, `feature_flags:manage_ward`, `escalation_rules:manage`, `reports:export`, `audit:view`, `elections:manage`, `representative_office:manage`. **Same as Ward admin minus `content:publish`**; a ward opts back in with a `ward_role_permission_overrides` grant. |
+| Ward rep office     | **Identical to Ward representative**, term-scoped (`election_term_id` required).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Ward admin          | Everything Ward representative has, **plus `content:publish`**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ULB admin           | `ulb:manage_wards`, `ulb:manage_admins`, `ulb:view_analytics`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| District admin      | `district:manage_ulbs`, `district:manage_admins`, `district:view_analytics`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| State admin         | `state:manage_districts`, `state:manage_admins`, `state:view_analytics`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Platform admin      | **Every permission in the catalog, unconditionally.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
-#### 13.5.4 `user_permission_overrides` — NEW (v4.0), OPTIONAL
+This resolves the v4.0 wildcard shorthand and the three previously unassigned keys
+(`feature_flags:manage_ward`, `ideas:moderate`, `polls:manage`, now in the ward admin set).
 
-Per-user exceptions to role defaults. **Genuinely optional:** include it only if per-user exceptions
-are needed on day one (e.g. one specific `ward_staff` member who may also export reports). It can
-land later with zero impact on `roles` / `permissions` / `role_permissions`; nothing else depends on
-it.
+#### 13.5.4 `ward_role_permission_overrides` — NEW (v5.0)
 
-| Column          | Type | Null | Constraints / notes                                                 |
-| --------------- | ---- | ---- | ------------------------------------------------------------------- |
-| `id`            | UUID |      | PK                                                                  |
-| `user_id`       | —    |      | FK → `users`                                                        |
-| `ward_id`       | —    | NULL | FK → `wards`. **`NULL` = global override**, ward-specific otherwise |
-| `permission_id` | —    |      | FK → `permissions`                                                  |
-| `effect`        | —    |      | One of: `grant`, `deny`                                             |
-| `reason`        | —    | NULL |                                                                     |
-| `created_by`    | —    |      | FK (→ `users`, by name)                                             |
-| `created_at`    | —    |      |                                                                     |
-| `expires_at`    | —    | NULL | For a time-boxed exception (e.g. covering for someone on leave)     |
+Lets **one ward deviate from the platform default for a role**. It is keyed by (ward, role), not
+(ward, person), so it **survives representative turnover automatically**: nobody has to recreate
+it after an election.
 
-#### 13.5.5 Deliberately not built (v4.0)
+| Column          | Type | Null | Constraints / notes                                                |
+| --------------- | ---- | ---- | ------------------------------------------------------------------ |
+| `id`            | UUID |      | PK                                                                 |
+| `ward_id`       | —    |      | FK → `wards`                                                       |
+| `role_key`      | —    |      | FK → `roles.key`                                                   |
+| `permission_id` | —    |      | FK → `permissions`                                                 |
+| `effect`        | —    |      | One of: `grant`, `deny`                                            |
+| `created_by`    | —    |      | FK (→ `users`, by name)                                            |
+| `created_at`    | —    |      |                                                                    |
+|                 |      |      | **`UNIQUE NULLS NOT DISTINCT (ward_id, role_key, permission_id)`** |
 
-- **Not a fully dynamic custom-role system.** Today every role has `is_system = true` and the
-  six-value set is still effectively fixed at the application layer (a `UserRole`-style constant).
-  Creatable-via-UI custom roles are 🔶 Phase 2 (§16), because they affect fixed enums elsewhere
-  (e.g. `escalate_to_role`).
+**No expiry column.** It is a standing ward policy until explicitly removed.
 
-### 13.6 Team invitations — `invites`
+#### 13.5.5 `user_permission_overrides` — NEW (v4.0), constraint fixed (v5.0)
 
-`POST /team/invite` creates an invite; `GET /team/invites/:token` gives a public preview;
-`POST /team/invites/:token/accept` binds the invite to the authenticated user. Only `token_hash`
-is stored. Status lifecycle: `pending` → `accepted` / `expired` / `revoked`. `invites.role` holds
-a role value (🔶 recommended FK → `roles.key`).
+| Column          | Type | Null | Constraints / notes                                                      |
+| --------------- | ---- | ---- | ------------------------------------------------------------------------ |
+| `id`            | UUID |      | PK                                                                       |
+| `user_id`       | —    |      | FK → `users`                                                             |
+| `ward_id`       | —    | NULL | FK → `wards`. **`NULL` = global override**, ward-specific otherwise      |
+| `permission_id` | —    |      | FK → `permissions`                                                       |
+| `effect`        | —    |      | One of: `grant`, `deny`                                                  |
+| `reason`        | —    | NULL |                                                                          |
+| `created_by`    | —    |      | FK (→ `users`, by name)                                                  |
+| `created_at`    | —    |      |                                                                          |
+| `expires_at`    | —    | NULL | Time-boxed exception (e.g. covering for someone on leave)                |
+|                 |      |      | **`UNIQUE NULLS NOT DISTINCT (user_id, ward_id, permission_id)`** (v5.0) |
 
-### 13.7 Representative office grants
+#### 13.5.6 Override precedence and expiry (RESOLVED v5.0)
+
+Three tiers; **the most specific wins**:
+
+| Tier (most specific first)  | Source                                                                                           | Example                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| 1. User-level override      | `user_permission_overrides` for this `user_id` (+ `ward_id` if ward-scoped, else the global row) | "This one ward_staff member is individually granted `reports:export`"                            |
+| 2. Ward-level role override | `ward_role_permission_overrides` for this `ward_id` + `role_key`                                 | "Ward 12 denies `content:publish` to `ward_representative`", applying to whoever holds that role |
+| 3. Platform default         | `role_permissions` for this `role_key`                                                           | The seeded default, everywhere, unless overridden above                                          |
+
+- **Worked example (source):** suppose `role_permissions` grants `ward_representative`
+  `content:publish` and Ward 12 adds a `deny` override. Every `ward_representative` in Ward 12,
+  including the next election's winner, is denied. A `user_permission_overrides` `grant` for one
+  specific representative in Ward 12 still wins (tier 1): "the ward-level deny does not override a
+  more specific user-level grant". (⚠️ In the v5.0 seed, `ward_representative` does **not**
+  have `content:publish` by default; the example assumes it does. See §17.2.)
+- **Within tier 1**, the ward-specific user override is applied before the global one (§13.2).
+- **Expiry:** a `user_permission_overrides` row with a past `expires_at` is **inactive and skipped**
+  (`WHERE expires_at IS NULL OR expires_at > now()`), falling through to tiers 2/3. **No cleanup
+  job is needed for correctness**; a periodic one may run for table hygiene (🔶 §16).
+
+### 13.6 Location-tiered administration — NEW (v5.0)
+
+A single flat `platform_admin` covering all of India is "both an operational bottleneck and a
+needlessly broad grant of access". v5.0 adds a **cascading appointment chain**:
+
+```text
+platform_admin → appoints state_admin
+state_admin    → appoints district_admin (districts within their state)
+district_admin → appoints ulb_admin      (cities within their district)
+ulb_admin      → appoints ward_admin     (wards within their city)
+```
+
+| Role             | Required scope column             | Appoints                                          |
+| ---------------- | --------------------------------- | ------------------------------------------------- |
+| `state_admin`    | `state_id` (all others `NULL`)    | `district_admin` for districts within their state |
+| `district_admin` | `district_id` (all others `NULL`) | `ulb_admin` for cities within their district      |
+| `ulb_admin`      | `city_id` (all others `NULL`)     | `ward_admin` for wards within their city          |
+
+Appointments are `user_ward_roles` rows with the matching scope column. Revocation is by "the
+appointing tier or above". Every appointment is audited.
+
+### 13.7 Team invitations — `invites`
+
+`POST /team/invite` creates an invite; `GET /team/invites/:token` previews it;
+`POST /team/invites/:token/accept` binds it to the authenticated user. Only `token_hash` is
+stored. Status: `pending` → `accepted` / `expired` / `revoked`. `invites.role` holds a role key
+(🔶 recommended FK → `roles.key`).
+
+### 13.8 Representative office grants
 
 Granted (`POST /wards/:id/representative/office-users`) and revoked
 (`DELETE /wards/:id/representative/office-users/:userId`) by a **ward admin**. Each grant writes
 `representative_office_users` **and** `user_ward_roles` in one transaction; all of a term's grants
 are revoked when the term closes (§6.5, §7).
 
-### 13.8 Role and permission endpoints (v4.0)
+> **Cross-team item (v5.0 §11, not a schema change):** the frontend has UI for
+> State/District/ULB admin roles but **no handling yet for `ward_rep_office`**. That is a frontend
+> task; the role, its permissions and its term scoping are fully specified here.
 
-| Method | Endpoint                                      | Purpose                                                                                                                                                        |
-| ------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/roles`                                      | List all roles (platform admin, for an admin-facing permissions matrix UI)                                                                                     |
-| GET    | `/permissions`                                | Full permissions catalog, grouped by module                                                                                                                    |
-| GET    | `/roles/:key/permissions`                     | Permissions currently granted to one role                                                                                                                      |
-| PATCH  | `/roles/:key/permissions`                     | Platform admin adjusts a role's permission set. **Powerful and instant for every user with that role; heavily audited (`audit_logs`), `platform_admin` only.** |
-| GET    | `/users/:id/permissions`                      | Effective permissions for a user (role defaults + overrides applied): the "why can/can't this person do X" debugging endpoint                                  |
-| POST   | `/users/:id/permission-overrides`             | Grant or deny a permission for a user (optionally ward-scoped, optionally time-boxed)                                                                          |
-| DELETE | `/users/:id/permission-overrides/:overrideId` | Remove an override, reverting to the role default                                                                                                              |
+### 13.9 Role and permission endpoints
+
+| Method   | Endpoint                                          | Purpose                                                                           |
+| -------- | ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| GET      | `/roles`                                          | List all roles                                                                    |
+| GET      | `/permissions`                                    | Full permissions catalog                                                          |
+| GET      | `/roles/:key/permissions`                         | Platform-default permissions for a role                                           |
+| PATCH    | `/roles/:key/permissions`                         | Platform admin adjusts a role's platform default (**audited**)                    |
+| GET      | `/wards/:id/role-permission-overrides`            | A ward's current deviations from platform defaults (**NEW v5.0**)                 |
+| POST     | `/wards/:id/role-permission-overrides`            | Set a ward-level grant/deny for a role + permission (**NEW v5.0**)                |
+| DELETE   | `/wards/:id/role-permission-overrides/:id`        | Remove a ward-level override, reverting to the platform default (**NEW v5.0**)    |
+| GET      | `/users/:id/permissions`                          | Effective permissions for a user (all three tiers resolved)                       |
+| POST     | `/users/:id/permission-overrides`                 | Grant/deny a permission for a specific user                                       |
+| DELETE   | `/users/:id/permission-overrides/:overrideId`     | Remove a user-level override                                                      |
+| GET/POST | `/states/:id/admins`                              | List / appoint `state_admin` (platform admin appoints) (**NEW v5.0**)             |
+| GET/POST | `/districts/:id/admins`                           | List / appoint `district_admin` (state admin, within their state) (**NEW v5.0**)  |
+| GET/POST | `/cities/:id/admins`                              | List / appoint `ulb_admin` (district admin, within their district) (**NEW v5.0**) |
+| DELETE   | `/{states\|districts\|cities}/:id/admins/:userId` | Revoke a tiered-admin appointment (appointing tier or above) (**NEW v5.0**)       |
 
 ---
 
@@ -1395,6 +1532,9 @@ are revoked when the term closes (§6.5, §7).
   (v4.0). Because permissions now live in data, audit questions such as "which permissions did
   this account have on the day of this action" are meant to be answerable from data rather than
   from the codebase's git history (v4.0 §0).
+- **Every privileged write is recorded** (v5.0 design principle): role grants, permission changes
+  (platform defaults and ward/user overrides), escalation-rule changes, representative-profile
+  edits and tiered-admin appointments.
 - Read through `GET /audit`.
 
 ### 14.2 Consent — `user_consents`
@@ -1464,22 +1604,24 @@ by TRD §4. Registration is **adapter-ready but inert until the push adapter shi
 🔶 **None of the items in this section are part of the current schema.** They are the source's
 "Recommended Next Steps (flagged, not built into this schema yet)" and related notes.
 
-| #     | Item                                                                             | Source guidance                                                                                                                                                                                                                                                                          |
-| ----- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 16.1  | **PostgreSQL + PostGIS**                                                         | Adopt PostGIS and **replace `boundary_geojson` with a real geometry column** once official ward boundary shapefiles are sourced from Survey of India / state GIS cells. Needed for true map-based ward lookup rather than point coordinates.                                             |
-| 16.2  | **Content i18n**                                                                 | Keep single-locale `title`/`body` columns. **Defer a `content_translations` pattern** until a second UI language actually ships ("measure before adding").                                                                                                                               |
-| 16.3  | **Outbox/event table** for external notifications                                | Recommended since v1.0 (§9 of v1.0); **still pending**. `device_tokens` now gives it somewhere to deliver to.                                                                                                                                                                            |
-| 16.4  | **Migration/restore drills**                                                     | Automated migration and restore drills **before pilot** (carried over from v1.0).                                                                                                                                                                                                        |
-| 16.5  | **Term-end reminder job**                                                        | A scheduled worker job ahead of `election_terms.term_end_date` so admins run the new-term workflow promptly rather than leaving a ward without a current representative.                                                                                                                 |
-| 16.6  | **Move `reservation_category` to `election_terms`**                              | Reservations are re-notified before each election cycle and can change term to term. Recommended **for the next revision**, once a state's actual multi-cycle notifications are available to validate against. **Not moved speculatively now**; the column stays on `wards`.             |
-| 16.7  | **Open311 / GeoReport v2 export**                                                | Not in v1 scope. Public `GET /issues` field names are kept compatible in spirit so a read-only GeoReport-compatible export can be added later without a breaking rename.                                                                                                                 |
-| 16.8  | **Representative publishing rights**                                             | Whether `ward_representative` / `ward_rep_office` may publish Updates/Events/Schemes directly is a **product decision**, currently "recommended to remain routed through ward staff/admin". v4.0 says this becomes expressible as data (not seeding `content:publish`) rather than code. |
-| 16.9  | **Fully dynamic custom roles** (v4.0)                                            | An admin creates a brand-new role, not just adjusts an existing one's permissions. `roles.is_system` is the seam. **Deliberately not built**; revisit once a real use case for a state- or ULB-specific role appears, rather than speculatively.                                         |
-| 16.10 | **FK `escalation_rules.escalate_to_role` / `invites.role` → `roles.key`** (v4.0) | Already safe to add today (as recommended for `user_ward_roles.role`), but becomes load-bearing once custom roles exist and role keys are no longer a small fixed set.                                                                                                                   |
-| 16.11 | **`user_permission_overrides`** (v4.0)                                           | **Optional** table (§13.5.4). Add when per-user exceptions are needed; no other table depends on it.                                                                                                                                                                                     |
+| #     | Item                                                           | Source guidance                                                                                                                                                                                                                                                              |
+| ----- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 16.1  | **PostgreSQL + PostGIS**                                       | Adopt PostGIS and **replace `boundary_geojson` with a real geometry column** once official ward boundary shapefiles are sourced from Survey of India / state GIS cells. Needed for true map-based ward lookup rather than point coordinates.                                 |
+| 16.2  | **Content i18n**                                               | Keep single-locale `title`/`body` columns. **Defer a `content_translations` pattern** until a second UI language actually ships ("measure before adding").                                                                                                                   |
+| 16.3  | **Outbox/event table** for external notifications              | Recommended since v1.0 (§9 of v1.0); **still pending**. `device_tokens` now gives it somewhere to deliver to.                                                                                                                                                                |
+| 16.4  | **Migration/restore drills**                                   | Automated migration and restore drills **before pilot** (carried over from v1.0).                                                                                                                                                                                            |
+| 16.5  | **Term-end reminder job**                                      | A scheduled worker job ahead of `election_terms.term_end_date` so admins run the new-term workflow promptly rather than leaving a ward without a current representative.                                                                                                     |
+| 16.6  | **Move `reservation_category` to `election_terms`**            | Reservations are re-notified before each election cycle and can change term to term. Recommended **for the next revision**, once a state's actual multi-cycle notifications are available to validate against. **Not moved speculatively now**; the column stays on `wards`. |
+| 16.7  | **Open311 / GeoReport v2 export**                              | Not in v1 scope. Public `GET /issues` field names are kept compatible in spirit so a read-only GeoReport-compatible export can be added later without a breaking rename.                                                                                                     |
+| 16.8  | **Representative publishing rights**                           | **Resolved (v5.0)** as data: `ward_representative` / `ward_rep_office` do **not** get `content:publish` by default; a ward opts in with a `ward_role_permission_overrides` grant (§13.5).                                                                                    |
+| 16.9  | **Fully dynamic custom roles**                                 | Admin-created roles (`is_system = false`). **Not built**; revisit once a real state- or ULB-specific use case appears.                                                                                                                                                       |
+| 16.10 | **FK role columns → `roles.key`**                              | Recommended for `user_ward_roles.role`, `escalation_rules.escalate_to_role` and `invites.role`: additive and non-breaking; becomes load-bearing once custom roles exist.                                                                                                     |
+| 16.11 | **Cleanup job for expired `user_permission_overrides`** (v5.0) | For table hygiene only; expiry is already enforced at query time (§13.5.6).                                                                                                                                                                                                  |
+| 16.12 | **Frontend `ward_rep_office` support** (v5.0 §11)              | Tracked as a **frontend** task, not a backend gap.                                                                                                                                                                                                                           |
 
-Database platform: PostgreSQL (current repository target, `migration_lock.toml` provider
-`postgresql`), with PostGIS recommended as in 16.1.
+Database platform: **PostgreSQL**, with the specification targeting **16.x** (v5.0; `UNIQUE NULLS
+NOT DISTINCT` needs 15+). This repository's `migration_lock.toml` provider is `postgresql`. PostGIS
+is recommended as in 16.1.
 
 ---
 
@@ -1490,50 +1632,55 @@ tables are implemented.
 
 ### 17.1 Resolved by later specification versions
 
-| #   | Former gap                                                                                               | Resolved by                                                                                                        |
-| --- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| R1  | `user_ward_roles` referenced but never defined                                                           | **v3.1 §2.5**: full definition restored from v1.0 and extended with `election_term_id` (§8.1).                     |
-| R2  | How `ward_representative` / `ward_rep_office` authorise (a `user_ward_roles` row, or derived via joins?) | **v3.1 §2.5**: they get **real rows**, written and deleted transactionally with the office/term tables (§6.5, §7). |
-| R3  | "Section 8 is missing" (v3.0 numbering went §7 → §9)                                                     | **v3.1** renumbers: §7 API endpoints, §8 Issue State Machine, §9 Gap log, §10 Next steps. Nothing was omitted.     |
-| R4  | `escalation_rules.escalate_to_role` value set not enumerated                                             | **v4.0 §2.7**: it holds one of the six role keys seeded in `roles`.                                                |
+| #   | Former gap                                                                  | Resolved by                                                                                                                                         |
+| --- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | `user_ward_roles` referenced but never defined                              | v3.1: definition restored and extended with `election_term_id` (§8.1)                                                                               |
+| R2  | How `ward_representative` / `ward_rep_office` authorise                     | v3.1: real `user_ward_roles` rows, written/deleted transactionally (§6.5, §7)                                                                       |
+| R3  | "Section 8 is missing" (v3.0 numbering)                                     | v3.1/v5.0 renumbering; nothing omitted                                                                                                              |
+| R4  | `escalation_rules.escalate_to_role` values not enumerated                   | v4.0/v5.0: one of the role keys in `roles`                                                                                                          |
+| R5  | `NULL`s in the `user_ward_roles` unique key allowed duplicates              | **v5.0**: `UNIQUE NULLS NOT DISTINCT` on `user_ward_roles`, `user_permission_overrides`, `ward_role_permission_overrides` (gap #16)                 |
+| R6  | Citizens had no row, yet had seeded permissions                             | **v5.0**: explicit `citizen` row auto-created at first OTP verify (gap #17)                                                                         |
+| R7  | Wildcards (`issues:*` …) not storable                                       | **v5.0**: every role's seed expanded to concrete keys (gap #18)                                                                                     |
+| R8  | `feature_flags:manage_ward`, `ideas:moderate`, `polls:manage` unassigned    | **v5.0**: assigned to ward admin (and to ward representative / office, whose set is ward admin minus `content:publish`) (gap #19)                   |
+| R9  | No per-ward mechanism to withhold `content:publish` from the representative | **v5.0**: `ward_role_permission_overrides` (gap #20)                                                                                                |
+| R10 | Override precedence and expiry undefined                                    | **v5.0**: user > ward-role > platform default; query-time expiry filter (gap #21)                                                                   |
+| R11 | Re-election with a linked login: reuse or duplicate?                        | **v5.0**: explicit `representative_profile_id` or `new_profile` (409 on likely duplicate); never inferred (gap #22)                                 |
+| R12 | Frontend's State/District/ULB admin roles missing from the specification    | **v5.0**: `state_admin`, `district_admin`, `ulb_admin` with cascading appointments (gap #23). Remaining frontend task: `ward_rep_office` UI (§13.8) |
 
 ### 17.2 Open — roles, permissions and `user_ward_roles`
 
-| #   | Gap / ambiguity                                                                                                                                                                                                                                                                                                                | Where                               | Impact                                                                                                                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **`NULL`s in `UNIQUE(user_id, ward_id, role, election_term_id)`.** In PostgreSQL a plain unique constraint treats `NULL`s as distinct, so it would not stop duplicate permanent (`election_term_id IS NULL`) or `platform_admin` (`ward_id IS NULL`) rows.                                                                     | v3.1 §2.5                           | Decide on `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+) or partial unique indexes.                                        |
-| 2   | **Citizens usually have no `user_ward_roles` row**, yet v4.0 seeds permissions for `citizen` (`issues:create`, `issues:rate`). How the middleware assigns the `citizen` role to an authenticated user with no row (implicit default?) is not stated.                                                                           | v3.1 §6, v4.0 §6                    | Define citizen role resolution.                                                                                          |
-| 3   | **Wildcard shorthand in the seed mapping** (`issues:*`, `content:*`, `team:*`, `ward:*`) cannot be stored in `role_permissions` (one row per `permission_id`). Whether each expands to the keys prefixed with that name (e.g. `ward:*` → `ward:configure` …) or to the whole module is not stated.                             | v4.0 §6                             | Expand to an explicit seed list.                                                                                         |
-| 4   | **Seed keys not assigned to any role:** `feature_flags:manage_ward` (yet ward admins toggle ward flags via `PATCH /wards/:id/feature-flags/:key`), `ideas:moderate` and `polls:manage` (no role receives them; `polls:manage` presumably gates `POST /polls`).                                                                 | v4.0 §2.7, §6; v3.0 §7.2            | Confirm which roles receive them.                                                                                        |
-| 5   | **"Not seeding `content:publish` for this role in a given ward's override"**: `role_permissions` is global (no ward column) and `user_permission_overrides` is per user, so there is no per-ward, per-role override mechanism as described.                                                                                    | v4.0 §6                             | Decide how a ward opts its representative in or out of publishing.                                                       |
-| 6   | **Override semantics**: precedence of `deny` vs `grant`, of ward-specific vs global overrides, and treatment of expired rows (`expires_at` in the past) are not specified.                                                                                                                                                     | v4.0 §2.7, §6                       | Define evaluation rules before implementing overrides.                                                                   |
-| 7   | **`escalation_rules:manage` "ward-scoped only" for ward admin** vs platform-wide rules (`ward_id NULL`) is a scope restriction that the permission catalog itself cannot express; it must be enforced in the service layer.                                                                                                    | v4.0 §6                             | Confirm.                                                                                                                 |
-| 8   | **Re-elected representative with a linked login**: when the new-term workflow reuses a profile with `linked_user_id`, the old term's `ward_representative` row is deleted on close; whether the workflow automatically creates the new term's row is not stated.                                                               | v3.1 §2.5                           | Define in the new-term workflow.                                                                                         |
-| 9   | **Revocation mechanics differ slightly between versions**: v3.0 says the office user's `user_ward_roles` row is "removed"; v3.1 specifies deleting **all** rows with that `election_term_id` and `role IN (ward_representative, ward_rep_office)`. v3.1 is authoritative.                                                      | v3.0 §2.5, v3.1 §2.5                | None (recorded for traceability).                                                                                        |
-| 10  | **Roles in the WardSetu frontend skill differ from the specification.** The frontend lists Platform Admin, **State Admin, District Admin, ULB Admin**, Ward Admin, Ward Team Member, Ward Representative, Citizen. The specification has six roles, with **no state/district/ULB admin** roles and **with** `ward_rep_office`. | Frontend skill §22/§82 vs v4.0 §2.7 | Align the frontend role model with the specification, or extend the specification (custom roles are future work, §16.9). |
+| #   | Gap / ambiguity                                                                                                                                                                                                                                                                                                                                                                             | Where              | Impact                                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------- |
+| 1   | **Worked example vs seed.** The §4.3 worked example says `role_permissions` grants `ward_representative` `content:publish` by default and Ward 12 **denies** it; the §4.4 seed says the representative does **not** have it by default and a ward opts in with a **grant**. The seed is the concrete, stated default; the example shows precedence only.                                    | v5.0 §4.3 vs §4.4  | Implement the §4.4 seed; treat the example as illustrative. Confirm. |
+| 2   | **`ward_rep_office` has the same set as `ward_representative`**, which includes `representative_office:manage` and `team:manage_roles`. So office staff could manage office-user grants and team roles. This is stated as intended ("identical") but may be worth confirming.                                                                                                               | v5.0 §4.4          | Confirm with product.                                                |
+| 3   | **Scope of tiered-admin permissions over ward data.** `ulb_admin` / `district_admin` / `state_admin` only hold appointment and analytics keys (`*:manage_admins`, `*:view_analytics`, …). The specification doesn't say whether their `view_analytics` covers the wards beneath them, or how middleware resolves location-scoped roles against ward-scoped resources (hierarchy traversal). | v5.0 §4.2, §4.4    | Define hierarchy-aware scope checks.                                 |
+| 4   | **Citizen-row backfill.** The `citizen` row is created at first OTP verify; users created before that rule (if any exist in the current database) would need a one-time backfill in the migration that introduces it.                                                                                                                                                                       | v5.0 §4.1          | Handle in the migration plan once the existing schema is known.      |
+| 5   | **Platform-default escalation rules** (`escalation_rules.ward_id IS NULL`): `escalation_rules:manage` is held by ward admins/representatives and platform admin. Which roles may create or edit **platform-wide** rules isn't stated (v4.0 said ward admin's grant was "ward-scoped only"; v5.0 dropped that qualifier).                                                                    | v4.0 §6, v5.0 §4.4 | Confirm; likely service-layer scope check.                           |
+| 6   | **PostgreSQL version on the server.** The specification targets 16.x and `NULLS NOT DISTINCT` needs 15+. The production server's actual version has not been verified from this repository.                                                                                                                                                                                                 | v5.0 §4.1          | Operator to confirm `SELECT version();` before migrations.           |
+| 7   | **Revocation mechanics differ between versions**: v3.0 removes the office user's row; v3.1/v5.0 delete all term-scoped representative rows. v3.1/v5.0 is authoritative.                                                                                                                                                                                                                     | v3.0, v3.1         | None (traceability).                                                 |
 
 ### 17.3 Open — other
 
-| #   | Gap / ambiguity                                                                                                                                                                                                                                                                                                            | Where                                      | Impact                                                                                                            |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| 11  | **No notifications table** is listed, although in-app notifications are said to exist in v1.0.                                                                                                                                                                                                                             | v3.0 §4                                    | Confirm whether a v1.0 notifications table exists (v3.1 showed that v1.0 tables can be missing from later lists). |
-| 12  | **Column data types are mostly unstated.** Only UUID PKs, `VARCHAR` (`roles.key`, `permissions.key`), `INT`, `DATE`, `BOOLEAN` and `SMALLINT` are given.                                                                                                                                                                   | Throughout                                 | Types must be decided and recorded before migrations.                                                             |
-| 13  | **Nullability and defaults are mostly unstated** beyond explicit `NULL` markers, the `designation` default and `roles.is_system DEFAULT true`.                                                                                                                                                                             | Throughout                                 | Decide per column.                                                                                                |
-| 14  | **FK targets not always stated**: `representative_office_users.added_by`, `issues.assigned_to`, `issues.locality_id`, `ideas.locality_id`, `audit_logs.ward_id` / `actor_id`, `user_permission_overrides.created_by`, and `*_by` / `*_id` columns described only as "FK". `ON DELETE` behaviour is not specified anywhere. | v3.0 §3, §2.4; v4.0 §2.7                   | Confirm targets and delete behaviour.                                                                             |
-| 15  | **Enforcement of `ward_representative_terms.ward_id = election_terms.ward_id`** is required but no mechanism is given.                                                                                                                                                                                                     | v3.0 §2.3                                  | Choose a mechanism.                                                                                               |
-| 16  | **Status/priority value sets** for `wards.status`, `users.status`, `issues.priority`, `updates.status`, `events.status`, `event_rsvps.status`, `schemes.status`, `library_items.status`/`type`, `opportunities.status`/`audience`, `ideas.status` and `polls.status` are not enumerated.                                   | v3.0 §3, §4                                | Define value sets.                                                                                                |
-| 17  | **Full v1.0 index list** is not reproduced ("all v1.0 indexes retained", one example given).                                                                                                                                                                                                                               | v3.0 §5                                    | Retrieve the v1.0 index list.                                                                                     |
-| 18  | **Deletion/retention semantics** (what is deleted vs anonymised vs retained, retention periods).                                                                                                                                                                                                                           | v3.0 §4                                    | Needs a policy decision, especially given "civic data belongs to the ward".                                       |
-| 19  | **Legacy `wards.state`/`district`/`ulb_name` trigger** behaviour on city renames or re-parenting. v3.1's reprint of `wards` omits these legacy columns and the `reservation_category` value list while stating the section is unchanged; the v3.0 definition is treated as authoritative.                                  | v3.0 §1, v3.1 §1                           | Define the trigger.                                                                                               |
-| 20  | **Product naming:** the source says "WardConnect"; this repository is "WardSetu".                                                                                                                                                                                                                                          | Title                                      | Confirm (identifiers are unaffected).                                                                             |
-| 21  | **Issue statuses differ from the WardSetu frontend skill** (New, Acknowledged, Assigned, In Progress, Resolved, Closed, Rejected vs `submitted`, `verified`, `assigned`, `in_progress`, `resolved`, `reopened`, `rejected`; no `closed`). This specification is authoritative for the database.                            | Frontend skill §38 vs source state machine | Align frontend labels/mapping separately.                                                                         |
-| 22  | **Future-module list in the backend skill** (Electoral Rolls, Voters, Polling Stations, Candidates, Campaigns) is **not part of this specification**, and the specification states that no individual's caste, religion or vote intent is stored.                                                                          | Backend skill vs v3.0 §0.2                 | Any such module needs its own specification and must respect the source's non-goals.                              |
+| #   | Gap / ambiguity                                                                                                                                                                                                                                                                                                                   | Where                     | Impact                                                              |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------- |
+| 8   | **No notifications table** is listed, although in-app notifications are said to exist in v1.0. v5.0's consolidated list also has none.                                                                                                                                                                                            | v3.0 §4, v5.0 §5–6        | Confirm whether one exists or is needed.                            |
+| 9   | **Column data types are mostly unstated.** Only UUID PKs, `VARCHAR` (`roles.key`, `permissions.key`), `INT`, `DATE`, `BOOLEAN` and `SMALLINT` are given.                                                                                                                                                                          | Throughout                | Decide and record before migrations.                                |
+| 10  | **Nullability and defaults are mostly unstated** beyond explicit `NULL` markers, the `designation` default and `roles.is_system DEFAULT true`.                                                                                                                                                                                    | Throughout                | Decide per column.                                                  |
+| 11  | **FK targets not always stated** (`representative_office_users.added_by`, `issues.assigned_to`, `issues.locality_id`, `ideas.locality_id`, `audit_logs.ward_id` / `actor_id`, `*.created_by`), and `ON DELETE` behaviour is not specified anywhere.                                                                               | Throughout                | Confirm targets and delete behaviour.                               |
+| 12  | **Enforcement of `ward_representative_terms.ward_id = election_terms.ward_id`** is required (v3.0) but no mechanism is given; v5.0's reprint omits the "must match" note without removing it.                                                                                                                                     | v3.0 §2.3, v5.0 §3.3      | Choose a mechanism.                                                 |
+| 13  | **Status/priority value sets** for `wards.status`, `users.status`, `issues.priority`, `updates.status`, `events.status`, `event_rsvps.status`, `schemes.status`, `library_items.status`/`type`, `opportunities.status`/`audience`, `ideas.status` and `polls.status` are not enumerated.                                          | Throughout                | Define value sets.                                                  |
+| 14  | **Full v1.0 index list** is not reproduced ("all original v1.0 indexes are retained").                                                                                                                                                                                                                                            | v5.0 §7                   | Retrieve from the v1.0 schema or the database dump.                 |
+| 15  | **Deletion/retention semantics** (what is deleted vs anonymised vs retained, retention periods).                                                                                                                                                                                                                                  | v3.0 §4                   | Policy decision, given "civic data belongs to the ward".            |
+| 16  | **Details v5.0 omits without explicitly removing**: the legacy trigger-populated `wards.state`/`district`/`ulb_name` columns, the `reservation_category` value list, the `designation` default and several rationale notes. They are kept here from v3.0. Whether v5.0 intends to **drop the legacy text columns** is not stated. | v3.0 §1–2 vs v5.0 §2–3    | Confirm, especially the legacy columns and their trigger.           |
+| 17  | **Product naming:** the source says "WardConnect"; this repository is "WardSetu".                                                                                                                                                                                                                                                 | Title                     | Confirm (identifiers unaffected).                                   |
+| 18  | **Issue statuses differ from the WardSetu frontend skill** (New, Acknowledged, Assigned, In Progress, Resolved, Closed, Rejected vs `submitted`, `verified`, `assigned`, `in_progress`, `resolved`, `reopened`, `rejected`). This specification is authoritative for the database.                                                | Frontend skill vs v5.0 §9 | Align frontend labels/mapping.                                      |
+| 19  | **Future-module list in the backend skill** (Electoral Rolls, Voters, Polling Stations, Candidates, Campaigns) is not in this specification. v5.0 also states: no citizen caste/religion/political preference, and **no live Election Commission feed**.                                                                          | Backend skill vs v5.0 §10 | Any such module needs its own specification within these non-goals. |
 
 ---
 
-## 18. v1.0 → v4.0 gap analysis (traceability)
+## 18. v1.0 → v5.0 gap analysis (traceability)
 
-Reproduced from source gap logs (v3.0 §10, v3.1 §9, v4.0 §9).
+Reproduced from the source gap log (v5.0 §12, consolidating v3.0 §10, v3.1 §9, v4.0 §9).
 
 | #   | Gap found                                                                                                                                                                                  | Resolution                                                                                                                                                                                                                                           |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1551,7 +1698,15 @@ Reproduced from source gap logs (v3.0 §10, v3.1 §9, v4.0 §9).
 | 12  | v2.0 `ward_representatives` flat row could not model the 5-year cycle, re-election or history                                                                                              | `election_terms` + `representative_profiles` + `ward_representative_terms` (§6.1–6.3)                                                                                                                                                                |
 | 13  | Parshad's office (PA/secretary) could not operate the dashboard without impersonation or unrelated `ward_admin` rights                                                                     | `representative_office_users` + `ward_rep_office` role, term-scoped and auto-revoked on term close (§6.4, §7)                                                                                                                                        |
 | 14  | `user_ward_roles`, referenced since v1.0 as the authorization source of truth, had its definition silently dropped after v1.0, and v3.0 never said whether the two new roles use it (v3.1) | Definition restored and extended with `election_term_id`; both new roles get a real row, written transactionally with `representative_office_users` / `ward_representative_terms`, so authorization is one uniform query for every role (§8.1, §6.5) |
-| 15  | Roles and capabilities were entirely hardcoded (fixed enum plus application code and prose), with nothing in the database describing what a role can do (v4.0)                             | `roles`, `permissions`, `role_permissions` catalog plus optional `user_permission_overrides`; existing role columns and values unchanged, so additive, not a breaking migration (§13.5)                                                              |
+| 15  | Roles and capabilities were entirely hardcoded, with nothing queryable (v4.0)                                                                                                              | `permissions`, `roles`, `role_permissions`, `user_permission_overrides` (§13.5)                                                                                                                                                                      |
+| 16  | Default `UNIQUE` lets `NULL` columns duplicate permanent/platform-wide role grants (v5.0)                                                                                                  | `UNIQUE NULLS NOT DISTINCT` on `user_ward_roles` and every other table with a nullable key column                                                                                                                                                    |
+| 17  | No stated mechanism for how a citizen gets the citizen role without a row (v5.0)                                                                                                           | Every user gets an explicit `citizen` row, auto-created at signup; no implicit default                                                                                                                                                               |
+| 18  | Wildcard permissions (`issues:*`, etc.) aren't storable in `role_permissions` (v5.0)                                                                                                       | Every role's seed list expanded to concrete keys                                                                                                                                                                                                     |
+| 19  | Three catalogued permissions were never assigned to any role (v5.0)                                                                                                                        | `feature_flags:manage_ward`, `ideas:moderate`, `polls:manage` added to Ward admin's default set                                                                                                                                                      |
+| 20  | No mechanism for a ward to opt a role out of a default permission (v5.0)                                                                                                                   | `ward_role_permission_overrides`, keyed by (ward, role) so it survives representative turnover                                                                                                                                                       |
+| 21  | Override precedence and expiry handling were undefined (v5.0)                                                                                                                              | Three-tier precedence (user > ward-role > platform default) and query-time expiry filtering                                                                                                                                                          |
+| 22  | New-term workflow didn't state how re-election with a linked login is matched (v5.0)                                                                                                       | Explicit `representative_profile_id` or `new_profile` required; never inferred; duplicate check added                                                                                                                                                |
+| 23  | Frontend assumes State/District/ULB admin roles the backend never defined (v5.0)                                                                                                           | `state_admin`, `district_admin`, `ulb_admin` with a cascading appointment model (§13.6)                                                                                                                                                              |
 
 ---
 
@@ -1559,23 +1714,24 @@ Reproduced from source gap logs (v3.0 §10, v3.1 §9, v4.0 §9).
 
 Summary for traceability; the full API contract belongs in OpenAPI.
 
-| Area                                    | Endpoints                                                                                                                                                                                                             | Tables                                                                                                                         |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Auth                                    | `POST /auth/otp/request`, `/auth/otp/verify`, `/auth/refresh`, `/auth/logout`                                                                                                                                         | `otp_challenges`, `auth_sessions`, `users`                                                                                     |
-| Profile                                 | `GET`/`PATCH /me`                                                                                                                                                                                                     | `users`                                                                                                                        |
-| Hierarchy                               | `GET /states`, `/states/:id/districts`, `/districts/:id/cities`, `/cities/:id/wards`, `/wards`, `/wards/:id`, `/wards/:id/localities`                                                                                 | `states`, `districts`, `cities`, `wards`, `localities`                                                                         |
-| Representative                          | `GET`/`PUT /wards/:id/representative`, `GET /wards/:id/representative/history`, `GET /representative-profiles/:id`                                                                                                    | `ward_representative_terms`, `representative_profiles`                                                                         |
-| Elections                               | `GET /wards/:id/elections/terms`, `/terms/:termId`, `POST /wards/:id/elections/new-term`, `/close-term`                                                                                                               | `election_terms`, `ward_representative_terms`, `representative_profiles`, `representative_office_users`, `user_ward_roles`     |
-| Office users                            | `GET`/`POST /wards/:id/representative/office-users`, `DELETE …/office-users/:userId`                                                                                                                                  | `representative_office_users`, `user_ward_roles`                                                                               |
-| Issues                                  | `GET`/`POST /issues`, `GET /issues/:id`, `POST /issues/:id/{media,follow-up,verify,assign,forward,progress,resolve,reopen,rate,link}`, `GET /issues/:id/{links,escalations}`, `DELETE /issues/:issueId/links/:linkId` | `issues`, `issue_media`, `issue_events`, `issue_references`, `issue_ratings`, `issue_links`, `issue_escalations`, `audit_logs` |
-| Escalation                              | `GET`/`POST /escalation-rules`                                                                                                                                                                                        | `escalation_rules`                                                                                                             |
-| Content                                 | `/updates` (+ `/:id`, `/:id/publish`), `/events` (+ `/:id/rsvp`), `/schemes`, `/library`, `/opportunities`                                                                                                            | `updates`, `events`, `event_rsvps`, `schemes`, `library_items`, `opportunities`                                                |
-| Participation                           | `/ideas` (+ `/:id/vote`), `/polls` (+ `/:id/vote`)                                                                                                                                                                    | `ideas`, `idea_votes`, `polls`, `poll_options`, `poll_votes`                                                                   |
-| Reports                                 | `GET /reports/monthly`, `/reports/export.csv`                                                                                                                                                                         | `report_snapshots`, `issues`                                                                                                   |
-| Team                                    | `GET /team`, `POST /team/invite`, `PATCH /team/:userId/role`, `GET /team/invites/:token`, `POST /team/invites/:token/accept`                                                                                          | `invites`, `user_ward_roles`, `users`                                                                                          |
-| Roles & permissions (v4.0)              | `GET /roles`, `GET /permissions`, `GET`/`PATCH /roles/:key/permissions`, `GET /users/:id/permissions`, `POST /users/:id/permission-overrides`, `DELETE /users/:id/permission-overrides/:overrideId`                   | `roles`, `permissions`, `role_permissions`, `user_permission_overrides`, `user_ward_roles`, `audit_logs`                       |
-| Authorization (every protected request) | Middleware (§13.2)                                                                                                                                                                                                    | `user_ward_roles`, `role_permissions`, `user_permission_overrides`                                                             |
-| Privacy                                 | `POST`/`GET /me/consent`, `POST`/`GET /me/data-deletion-request`                                                                                                                                                      | `user_consents`, `data_deletion_requests`                                                                                      |
-| Devices                                 | `POST /me/devices`, `DELETE /me/devices/:id`, `GET`/`PATCH /me/notification-preferences`                                                                                                                              | `device_tokens`, `notification_preferences`                                                                                    |
-| Flags                                   | `GET /feature-flags`, `PATCH /wards/:id/feature-flags/:key`                                                                                                                                                           | `feature_flags`, `ward_feature_flags`                                                                                          |
-| Audit / ops                             | `GET /audit`, `GET /health`                                                                                                                                                                                           | `audit_logs`                                                                                                                   |
+| Area                                    | Endpoints                                                                                                                                                                                                                                                                                                 | Tables                                                                                                                         |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Auth                                    | `POST /auth/otp/request`, `/auth/otp/verify` (also creates the `citizen` row on first login), `/auth/refresh`, `/auth/logout`                                                                                                                                                                             | `otp_challenges`, `auth_sessions`, `users`, `user_ward_roles`                                                                  |
+| Profile                                 | `GET`/`PATCH /me`                                                                                                                                                                                                                                                                                         | `users`                                                                                                                        |
+| Hierarchy                               | `GET /states`, `/states/:id/districts`, `/districts/:id/cities`, `/cities/:id/wards`, `/wards`, `/wards/:id`, `/wards/:id/localities`                                                                                                                                                                     | `states`, `districts`, `cities`, `wards`, `localities`                                                                         |
+| Representative                          | `GET /wards/:id/representative`, `PUT /wards/:id/representative` (**deprecated** v5.0), `GET /wards/:id/representative/history`, `GET /representative-profiles?search=` (NEW v5.0), `GET /representative-profiles/:id`                                                                                    | `ward_representative_terms`, `representative_profiles`                                                                         |
+| Elections                               | `GET /wards/:id/elections/terms`, `/terms/:termId`, `POST /wards/:id/elections/new-term`, `/close-term`                                                                                                                                                                                                   | `election_terms`, `ward_representative_terms`, `representative_profiles`, `representative_office_users`, `user_ward_roles`     |
+| Office users                            | `GET`/`POST /wards/:id/representative/office-users`, `DELETE …/office-users/:userId`                                                                                                                                                                                                                      | `representative_office_users`, `user_ward_roles`                                                                               |
+| Issues                                  | `GET`/`POST /issues`, `GET /issues/:id`, `POST /issues/:id/{media,follow-up,verify,assign,forward,progress,resolve,reopen,rate,link}`, `GET /issues/:id/{links,escalations}`, `DELETE /issues/:issueId/links/:linkId`                                                                                     | `issues`, `issue_media`, `issue_events`, `issue_references`, `issue_ratings`, `issue_links`, `issue_escalations`, `audit_logs` |
+| Escalation                              | `GET`/`POST /escalation-rules`                                                                                                                                                                                                                                                                            | `escalation_rules`                                                                                                             |
+| Content                                 | `/updates` (+ `/:id`, `/:id/publish`), `/events` (+ `/:id/rsvp`), `/schemes`, `/library`, `/opportunities`                                                                                                                                                                                                | `updates`, `events`, `event_rsvps`, `schemes`, `library_items`, `opportunities`                                                |
+| Participation                           | `/ideas` (+ `/:id/vote`), `/polls` (+ `/:id/vote`)                                                                                                                                                                                                                                                        | `ideas`, `idea_votes`, `polls`, `poll_options`, `poll_votes`                                                                   |
+| Reports                                 | `GET /reports/monthly`, `/reports/export.csv`                                                                                                                                                                                                                                                             | `report_snapshots`, `issues`                                                                                                   |
+| Team                                    | `GET /team`, `POST /team/invite`, `PATCH /team/:userId/role`, `GET /team/invites/:token`, `POST /team/invites/:token/accept`                                                                                                                                                                              | `invites`, `user_ward_roles`, `users`                                                                                          |
+| Roles & permissions                     | `GET /roles`, `GET /permissions`, `GET`/`PATCH /roles/:key/permissions`, `GET`/`POST /wards/:id/role-permission-overrides`, `DELETE /wards/:id/role-permission-overrides/:id`, `GET /users/:id/permissions`, `POST /users/:id/permission-overrides`, `DELETE /users/:id/permission-overrides/:overrideId` | `roles`, `permissions`, `role_permissions`, `ward_role_permission_overrides`, `user_permission_overrides`, `audit_logs`        |
+| Tiered administration (v5.0)            | `GET`/`POST /states/:id/admins`, `GET`/`POST /districts/:id/admins`, `GET`/`POST /cities/:id/admins`, `DELETE /{states\|districts\|cities}/:id/admins/:userId`                                                                                                                                            | `user_ward_roles`, `audit_logs`                                                                                                |
+| Authorization (every protected request) | Middleware (§13.2)                                                                                                                                                                                                                                                                                        | `user_ward_roles`, `role_permissions`, `ward_role_permission_overrides`, `user_permission_overrides`                           |
+| Privacy                                 | `POST`/`GET /me/consent`, `POST`/`GET /me/data-deletion-request`                                                                                                                                                                                                                                          | `user_consents`, `data_deletion_requests`                                                                                      |
+| Devices                                 | `POST /me/devices`, `DELETE /me/devices/:id`, `GET`/`PATCH /me/notification-preferences`                                                                                                                                                                                                                  | `device_tokens`, `notification_preferences`                                                                                    |
+| Flags                                   | `GET /feature-flags`, `PATCH /wards/:id/feature-flags/:key`                                                                                                                                                                                                                                               | `feature_flags`, `ward_feature_flags`                                                                                          |
+| Audit / ops                             | `GET /audit`, `GET /health`                                                                                                                                                                                                                                                                               | `audit_logs`                                                                                                                   |
