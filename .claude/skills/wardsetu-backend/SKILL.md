@@ -356,6 +356,37 @@ Never use:
 
 Never use a port already occupied by another application.
 
+Port `2020` is reserved for the WardSetu frontend (Next.js). The backend must never bind to, proxy to or modify it.
+
+Server topology:
+
+```text
+Frontend (Next.js):  127.0.0.1:2020   → public https://wardsetu.in
+Backend  (NestJS):   127.0.0.1:2010   → public https://api.wardsetu.in
+```
+
+```text
+Internet
+│
+├── wardsetu.in
+│     ↓
+│   Nginx
+│     ↓
+│   127.0.0.1:2020
+│     ↓
+│   WardSetu Next.js Frontend
+│
+└── api.wardsetu.in
+      ↓
+    Nginx
+      ↓
+    127.0.0.1:2010
+      ↓
+    WardSetu NestJS Backend
+```
+
+Production `CORS_ORIGINS` must include the public frontend origins (`https://wardsetu.in`, `https://www.wardsetu.in`), never the internal `127.0.0.1:2020` address.
+
 Use:
 
 ```typescript

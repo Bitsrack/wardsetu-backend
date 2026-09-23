@@ -6,7 +6,8 @@ Always load and follow the project skill before working in this repository:
 Key rules (the skill is authoritative):
 
 - Runtime: Node.js 24.21.0 / npm 11.19.0 (`.nvmrc`). Never change the system-wide Node.js.
-- The app binds only to `127.0.0.1:2010`; the API prefix is `/api`.
+- The app binds only to `127.0.0.1:2010`; the API prefix is `/api`. Port `2020` is reserved
+  for the WardSetu frontend — never use or modify it.
 - Claude Code has **no** production database access. Never run `psql`, `prisma db pull`,
   `prisma migrate dev`, `prisma migrate reset` or `prisma db push` against it.
 - Schema changes = `prisma/schema.prisma` + a committed migration in `prisma/migrations/`;

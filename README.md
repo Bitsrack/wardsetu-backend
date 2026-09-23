@@ -35,6 +35,21 @@ campaigns, …) are built on top of it in `src/modules/`.
 
 All versions are pinned exactly in `package.json`; installs are reproducible with `npm ci`.
 
+## Server topology
+
+| Service           | Internal address | Public URL                |
+| ----------------- | ---------------- | ------------------------- |
+| WardSetu frontend | `127.0.0.1:2020` | `https://wardsetu.in`     |
+| WardSetu backend  | `127.0.0.1:2010` | `https://api.wardsetu.in` |
+
+```text
+Internet
+├── wardsetu.in      → Nginx → 127.0.0.1:2020 → WardSetu Next.js frontend
+└── api.wardsetu.in  → Nginx → 127.0.0.1:2010 → WardSetu NestJS backend
+```
+
+Port `2020` belongs to the frontend; the backend never binds to it.
+
 **TypeScript:** TypeScript 7 is the native compiler and has no JavaScript API, which
 typescript-eslint, ts-jest and the NestJS CLI still need. `typescript` is therefore 6.0.3
 (build, lint, tests), and TypeScript 7.0.2 is installed as the `typescript7` alias.
