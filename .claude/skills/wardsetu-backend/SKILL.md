@@ -2462,6 +2462,25 @@ audit/consent/deletion/device/feature-flag models.
   endpoint list or omitted by accident — treat it as still deprecated, not removed, until
   confirmed.
 
+### Authoritative API contract
+
+`docs/API_SPECIFICATION.md` documents the full v6.0 endpoint set (auth/profile, location, ward
+representatives/elections/office users, issues and their state machine, content/community,
+team/roles/permissions, location-tiered administration, reports/audit/feature-flags/health), the
+global `{data, meta?}` / `{error:{code,message,details?}, requestId}` response conventions, cursor
+pagination, ISO-8601 UTC dates, and the full authorization resolution order. It is documentation
+only — no endpoints exist yet.
+
+* **OpenAPI/Swagger is the executable source of truth**, not this markdown file. Every new or
+  modified endpoint must be added to the OpenAPI spec; request/response schemas, parameters, auth
+  requirements and status/error codes must stay synchronized with it; generated docs and client
+  types must be regenerated from it. An API change is not complete if its OpenAPI documentation is
+  missing or outdated.
+* `docs/API_SPECIFICATION.md` §15 lists API-contract gaps the source spec leaves open (e.g. no
+  stated `ward_admin` appointment endpoint, no stated ward-creation route, no stated
+  platform-wide feature-flag write endpoint) — resolve these with a recorded decision, not an
+  assumption, before implementing the affected endpoints.
+
   Get a recorded decision before implementing these.
 
 ### Cloud (Claude Code on the web) sessions

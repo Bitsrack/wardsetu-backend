@@ -177,6 +177,18 @@ Backend Schema & API Specification v6.0 (Consolidated Edition). It covers 48 tab
 
 It is a reference only; none of it is implemented yet.
 
+### API contract
+
+The API contract shared with the WardSetu frontend team is documented in
+[`docs/API_SPECIFICATION.md`](docs/API_SPECIFICATION.md), covering every endpoint group from the
+same v6.0 specification (auth/profile, location, ward representatives/elections/office users,
+issues and their state machine, content/community, team/roles/permissions, location-tiered
+administration, reports/audit/feature-flags/health), the global response/error/pagination
+conventions, the full authorization resolution rules, and the OpenAPI/Swagger-as-source-of-truth
+policy. It is documentation only; no endpoints are implemented yet, and it is not the OpenAPI
+specification itself — once implementation begins, the OpenAPI spec is authoritative for exact
+request/response shapes.
+
 ### Current schema status
 
 `prisma/schema.prisma` defines no models yet. The existing `wardsetu` database schema is not

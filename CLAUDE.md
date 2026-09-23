@@ -14,6 +14,12 @@ Key rules (the skill is authoritative):
   WardConnect Backend Schema & API Specification **v6.0 Consolidated Edition**). Do not add,
   rename or redesign tables that contradict it; resolve its §17 open questions before
   implementing affected tables.
+- The authoritative API contract (shared with the frontend team) is `docs/API_SPECIFICATION.md`,
+  from the same v6.0 spec. **OpenAPI/Swagger is the executable source of truth**: every new or
+  modified endpoint must be added to the OpenAPI spec, request/response schemas and auth
+  requirements must stay synchronized with it, and generated client types must be regenerated
+  from it — an API change is not complete if its Swagger/OpenAPI documentation is missing or
+  outdated.
 - Authorization (v6.0): every user has `user_ward_roles` rows. A `citizen` row is auto-created at
   first OTP verify (existing users need a one-off backfill, §8.1). Rows are scoped by exactly one
   of ward/city/district/state, enforced by a CHECK, and are term-scoped for
