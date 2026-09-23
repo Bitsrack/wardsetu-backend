@@ -10,6 +10,9 @@ Key rules (the skill is authoritative):
   for the WardSetu frontend — never use or modify it.
 - Claude Code has **no** production database access. Never run `psql`, `prisma db pull`,
   `prisma migrate dev`, `prisma migrate reset` or `prisma db push` against it.
+- The authoritative data-model reference is `docs/DATABASE_ARCHITECTURE.md` (from the
+  WardConnect Backend Schema & API Specification v3.0). Do not add, rename or redesign tables
+  that contradict it; resolve its §17 open questions before implementing affected tables.
 - Schema changes = `prisma/schema.prisma` + a committed migration in `prisma/migrations/`;
   the operator applies them with `npm run prisma:migrate:deploy`.
 - Pin exact stable versions; the `prisma` npm `latest` tag is a release candidate.

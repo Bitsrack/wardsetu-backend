@@ -160,6 +160,14 @@ password exists only on the server.
 For local development, use a **separate** local database (e.g. `wardsetu_dev`) and point
 `DATABASE_URL` at it. Check the target before running any migration command.
 
+### Target data model
+
+The authoritative database design is documented in
+[`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md): 42 tables across the
+State → District → City/ULB → Ward → Locality hierarchy, election terms and representative
+office users, issues and their state machine, and the consent/deletion/device/feature-flag
+models. It is a reference only; none of it is implemented yet.
+
 ### Current schema status
 
 `prisma/schema.prisma` defines no models yet. The existing `wardsetu` database schema is not

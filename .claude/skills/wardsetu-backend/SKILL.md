@@ -2400,6 +2400,22 @@ dependency.
 * `PrismaService` does not crash the process when the database is
   unreachable at startup; `/api/health` returns 503 with `database: "down"`.
 
+### Authoritative data model
+
+`docs/DATABASE_ARCHITECTURE.md` documents the target schema from the _WardConnect — Backend
+Schema & API Specification v3.0_ (42 tables, hierarchy, election terms, representative office
+users, issue state machine, auth/roles, audit/consent/deletion/device/feature-flag models).
+
+* Treat it as the authoritative database reference. Preserve its table, column, enum and role
+  names exactly.
+* It is a design reference, not an implementation. Nothing in it exists in the database yet.
+* Resolve the relevant §17 "Source gaps and open questions" (e.g. the undefined
+  `user_ward_roles` table, unstated column types) with a recorded decision before implementing
+  the affected tables.
+* Items marked RECOMMENDED / FUTURE (PostGIS geometry, content translations, outbox,
+  term-end reminder, moving `reservation_category` to `election_terms`) are not part of the
+  current schema.
+
 ### Cloud (Claude Code on the web) sessions
 
 Cloud sessions run in an ephemeral container, **not** on the WardSetu
