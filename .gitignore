@@ -1,8 +1,26 @@
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.DS_Store
-coverage/
+# Dependencies
+node_modules/
+
+# Build output
 dist/
+coverage/
+*.tsbuildinfo
+
+# Generated Prisma Client (regenerate with `npm run prisma:generate`)
+src/generated/
+
+# Environment (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
 logs/
 *.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

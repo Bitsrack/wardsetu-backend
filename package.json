@@ -1,0 +1,70 @@
+{
+  "name": "wardsetu-backend",
+  "version": "0.1.0",
+  "description": "WardSetu civic and election management platform API.",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "24.21.0",
+    "npm": "11.19.0"
+  },
+  "scripts": {
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "build": "nest build",
+    "start:prod": "node dist/main.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && node node_modules/typescript7/bin/tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
+    "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:format": "prisma format",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:status": "prisma migrate status",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.0.4",
+    "@nestjs/config": "12.0.1",
+    "@nestjs/core": "12.0.4",
+    "@nestjs/platform-express": "12.0.4",
+    "@nestjs/swagger": "12.0.1",
+    "@nestjs/terminus": "12.1.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "helmet": "8.3.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@nestjs/cli": "12.0.5",
+    "@nestjs/schematics": "12.0.4",
+    "@nestjs/testing": "12.0.4",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.13.6",
+    "@types/supertest": "7.2.1",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "jest": "30.5.2",
+    "prettier": "3.9.8",
+    "prisma": "7.10.0",
+    "supertest": "7.3.0",
+    "ts-jest": "29.4.12",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "typescript7": "npm:typescript@7.0.2"
+  },
+  "scarfSettings": {
+    "enabled": false
+  }
+}

@@ -1,0 +1,20 @@
+// WardSetu Prisma schema — the source of truth for the database structure.
+//
+// Database changes are delivered as version-controlled migrations in
+// `prisma/migrations/` and applied on the server by the authorized operator
+// with `npm run prisma:migrate:deploy`. The connection URL lives in
+// `prisma.config.ts` (read from the DATABASE_URL environment variable).
+//
+// No models are defined yet: the existing `wardsetu` database schema is not
+// known to this repository. Establish the migration baseline from an
+// operator-provided schema-only dump before adding models.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
