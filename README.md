@@ -164,12 +164,13 @@ For local development, use a **separate** local database (e.g. `wardsetu_dev`) a
 
 The authoritative database design is documented in
 [`docs/DATABASE_ARCHITECTURE.md`](docs/DATABASE_ARCHITECTURE.md), based on the WardConnect
-Backend Schema & API Specification v5.0 (Consolidated Edition). It covers 48 tables:
+Backend Schema & API Specification v6.0 (Consolidated Edition). It covers 48 tables:
 
 - the State → District → City/ULB → Ward → Locality hierarchy;
 - election terms and representative office users;
-- `user_ward_roles` (location-scoped, nine roles including the State/District/ULB admin tiers)
-  and the roles/permissions catalog (`roles`, `permissions`, `role_permissions`,
+- `user_ward_roles` (location-scoped, nine roles including the State/District/ULB admin tiers,
+  with `view_analytics` cascading down the hierarchy and `manage_*` staying exact-tier) and the
+  roles/permissions catalog (`roles`, `permissions`, `role_permissions`,
   `ward_role_permission_overrides`, `user_permission_overrides`);
 - issues and their state machine;
 - the consent, deletion, device and feature-flag models.

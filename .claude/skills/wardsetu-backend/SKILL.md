@@ -2403,7 +2403,7 @@ dependency.
 ### Authoritative data model
 
 `docs/DATABASE_ARCHITECTURE.md` documents the target schema from the _WardConnect — Backend
-Schema & API Specification v5.0 (Consolidated Edition)_, which supersedes v1.0–v4.0. It covers 48
+Schema & API Specification v6.0 (Consolidated Edition)_, which supersedes v1.0–v5.0. It covers 48
 tables: the hierarchy, election terms, representative office users, `user_ward_roles`, the
 roles/permissions catalog, the issue state machine, and the
 audit/consent/deletion/device/feature-flag models.
@@ -2418,7 +2418,7 @@ audit/consent/deletion/device/feature-flag models.
   term-end reminder, moving `reservation_category` to `election_terms`, custom roles, role-column
   FKs to `roles.key`) are not part of the current schema.
 
-### Authorization model (spec v5.0)
+### Authorization model (spec v6.0)
 
 * `user_ward_roles` is the table every authorization check queries, for every role. There is one
   uniform query shape: "does a live row exist for this user, this ward and, for term-scoped
@@ -2426,11 +2426,13 @@ audit/consent/deletion/device/feature-flag models.
 * `ward_representative` and `ward_rep_office` rows carry `election_term_id` and are written in the
   same transaction as `representative_office_users` (or when `linked_user_id` is set). They are
   deleted in the same transaction that closes the term.
-* Every user gets an explicit `citizen` row, auto-created at first OTP verify. There is no
-  implicit default.
+* Every user gets an explicit `citizen` row, auto-created at first OTP verify. Existing users
+  predating this rule need a one-off, idempotent backfill run once as part of the migration,
+  before dependent application code goes live.
 * `user_ward_roles` scopes each role by exactly one of `ward_id` / `city_id` / `district_id` /
   `state_id` (or none for `citizen` / `platform_admin`). This is enforced by a database CHECK,
-  with `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+; the spec targets 16.x).
+  with `UNIQUE NULLS NOT DISTINCT`. Confirmed compatible with the operator's server: PostgreSQL
+  16.15 (needs 15+).
 * Nine roles: `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`,
   `ulb_admin`, `district_admin`, `state_admin`, `platform_admin`. Appointments cascade:
   platform → state → district → ULB → ward admin.
@@ -2438,15 +2440,27 @@ audit/consent/deletion/device/feature-flag models.
   `ward_role_permission_overrides` (ward + role) → `user_permission_overrides` (user;
   ward-specific before global; expired rows skipped). The most specific tier wins. Role
   capabilities are data, not code; seed lists use concrete keys, never wildcards.
+* `ward_representative` does **not** get `content:publish` by default (`ward_admin` does); a ward
+  opts in with a `ward_role_permission_overrides` grant. This is the single confirmed source of
+  truth — an earlier worked example in the spec briefly contradicted its own seed list and was
+  corrected.
+* `ward_rep_office` has a **narrower** set than `ward_representative`: no `team:invite`,
+  `team:manage_roles`, `team:remove`, `representative_office:manage` or `elections:manage`. Office
+  staff run day-to-day ward operations but can never change who has dashboard access, who the
+  representative is, or the platform-wide escalation default.
+* `view_analytics`-shaped permissions **cascade down** the location hierarchy (a `state_admin`'s
+  grant covers every district/ULB/ward beneath it); `manage_*`-shaped permissions are checked at
+  **exactly** the caller's own scope column and never cascade.
+* Ward-scoped vs platform-wide escalation rules are two different permissions:
+  `escalation_rules:manage` (own ward only) and `escalation_rules:manage_platform_defaults`
+  (`platform_admin` only, for rows where `escalation_rules.ward_id IS NULL`).
 * The new-term workflow requires an explicit `representative_profile_id` or `new_profile`
   (409 on a likely duplicate). Never infer identity by name or mobile.
-* Still open (see `docs/DATABASE_ARCHITECTURE.md` §17.2):
-  * the worked example vs the seed for `content:publish`;
-  * `ward_rep_office` holding `representative_office:manage`;
-  * hierarchy scope checks for tiered admins;
-  * a citizen-row backfill;
-  * who may manage platform-wide escalation rules;
-  * the server's PostgreSQL version.
+* Still open (see `docs/DATABASE_ARCHITECTURE.md` §17.2–§17.3): the mechanical detail of how the
+  hierarchy walk is implemented (join vs denormalised chain), and whether
+  `PUT /wards/:id/representative` (deprecated in v5.0) was intentionally dropped from v6.0's
+  endpoint list or omitted by accident — treat it as still deprecated, not removed, until
+  confirmed.
 
   Get a recorded decision before implementing these.
 
