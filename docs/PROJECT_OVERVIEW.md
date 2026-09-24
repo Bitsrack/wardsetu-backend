@@ -320,7 +320,7 @@ skill and states non-negotiable key rules; both repositories' `CLAUDE.md` point 
 - **`docs/API_SPECIFICATION.md`** — authoritative API contract and endpoint specification (narrative companion to OpenAPI/Swagger).
 - **`SKILL.md`** (each repository) — implementation standards and engineering rules; authoritative for how the code is actually built.
 - **OpenAPI/Swagger** (once implemented, served at `/api/docs`) — authoritative machine-readable API contract; an API change is not complete until its OpenAPI documentation is updated to match.
-- Frontend design/theme documentation (theme-token architecture, described in the frontend `README.md`/`SKILL.md`) — authoritative for UI/UX and design-system requirements.
+- The frontend repository's `docs/DESIGN_SYSTEM.md` — authoritative for UI/UX and design-system requirements (tokens, components, layout).
 
 Both repositories now have a `docs/ARCHITECTURE.md` (added after this document was first written,
 and moved into `docs/` alongside the other reference documents); it is the authoritative source
