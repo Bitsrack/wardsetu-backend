@@ -3,6 +3,11 @@
 Always load and follow the project skill before working in this repository:
 `.claude/skills/wardsetu-backend/SKILL.md` (skill name `wardsetu-backend`).
 
+Documentation layering (avoid restating facts owned elsewhere): `SKILL.md` is authoritative for
+engineering/style rules, `ARCHITECTURE.md` for system architecture, `docs/DATABASE_ARCHITECTURE.md`
+for the database design, `docs/API_SPECIFICATION.md` for the API contract, and
+`docs/PROJECT_OVERVIEW.md` for product-level scope. This file only points to them.
+
 Key rules (the skill is authoritative):
 
 - Runtime: Node.js 24.21.0 / npm 11.19.0 (`.nvmrc`). Never change the system-wide Node.js.
@@ -20,18 +25,10 @@ Key rules (the skill is authoritative):
   requirements must stay synchronized with it, and generated client types must be regenerated
   from it — an API change is not complete if its Swagger/OpenAPI documentation is missing or
   outdated.
-- Authorization (v6.0): every user has `user_ward_roles` rows. A `citizen` row is auto-created at
-  first OTP verify (existing users need a one-off backfill, §8.1). Rows are scoped by exactly one
-  of ward/city/district/state, enforced by a CHECK, and are term-scoped for
-  `ward_representative` / `ward_rep_office`. There are nine roles, including `ulb_admin`,
-  `district_admin` and `state_admin`. Permissions resolve in three tiers, most specific first:
-  user override, then ward-role override (`ward_role_permission_overrides`), then platform
-  default (`role_permissions`). `view_analytics` permissions cascade down the location hierarchy;
-  `manage_*` permissions never do (§13.6). `ward_rep_office` has a narrower set than
-  `ward_representative` — no team/access-management or election-recording powers (§13.5.3). Ward
-  admins may only manage ward-scoped escalation rules; only `platform_admin` may edit the
-  platform-wide default (`escalation_rules:manage_platform_defaults`). Never hardcode role
-  capabilities in application code; enforce in middleware + service/repository queries.
+- Authorization (v6.0): the full role/scope model, permission catalog, and three-tier precedence
+  are authoritative in `docs/DATABASE_ARCHITECTURE.md` §13 and `docs/API_SPECIFICATION.md` §6/§11
+  — do not restate them here or re-derive them independently. Never hardcode role capabilities in
+  application code; enforce in middleware + service/repository queries, evaluated server-side only.
 - Nullable columns inside unique keys use `UNIQUE NULLS NOT DISTINCT`. Confirmed compatible with
   the operator's server: **PostgreSQL 16.15** (needs 15+).
 - Schema changes = `prisma/schema.prisma` + a committed migration in `prisma/migrations/`;

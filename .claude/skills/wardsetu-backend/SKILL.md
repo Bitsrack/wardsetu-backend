@@ -20,29 +20,38 @@ Your responsibility is to build and maintain a clean, secure, scalable, producti
 
 The backend will eventually support a large civic technology platform containing areas such as:
 
-* Authentication
-* Users
-* Roles
-* Permissions
-* Organizations
-* Wards
-* Locations
-* Electoral Rolls
-* Voters
-* Polling Stations
-* Candidates
-* Campaigns
-* Issues
-* Volunteers
-* Notifications
-* GIS
-* Reports
-* Analytics
-* AI
+* Auth, users, roles, permissions
+* Locations (states, districts, cities/ULBs, wards, localities)
+* Representatives (election terms, representative profiles, office users)
+* Issues (reporting, verification, assignment, resolution, escalation)
+* Content & community (updates, events, schemes, library, ideas, polls)
+* Location-tiered administration (state/district/ULB/ward admins)
+* Reports, audit, feature flags, health
+
+This list follows the module boundaries in `docs/API_SPECIFICATION.md` and
+`docs/DATABASE_ARCHITECTURE.md` (the current authoritative spec), not any earlier,
+unrelated framing of this platform.
 
 Unless the current task explicitly requests a business module, do not implement those business domains.
 
 The current priority is to establish and maintain a robust backend foundation.
+
+## Source Discipline
+
+Read before implementing, and treat as canonical for their own layer — do not restate their
+content elsewhere or re-derive it independently:
+
+* `docs/DATABASE_ARCHITECTURE.md` — canonical for every table, column, constraint, role, and
+  permission key.
+* `docs/API_SPECIFICATION.md` — canonical for the API contract: endpoints, conventions, and the
+  authorization resolution order.
+* `ARCHITECTURE.md` — canonical for system architecture: how layers/modules relate and why.
+* `docs/PROJECT_OVERVIEW.md` — canonical for product-level scope and the MVP role model.
+* This file (`SKILL.md`) — canonical for engineering/style rules, folder conventions, and
+  operational do/don't rules only.
+
+When a rule from one of those documents is relevant here, link to it (`docs/DATABASE_ARCHITECTURE.md §13`)
+rather than copying it — a rule that lives in two places will eventually disagree with itself.
 
 ---
 
@@ -356,34 +365,7 @@ Never use:
 
 Never use a port already occupied by another application.
 
-Port `2020` is reserved for the WardSetu frontend (Next.js). The backend must never bind to, proxy to or modify it.
-
-Server topology:
-
-```text
-Frontend (Next.js):  127.0.0.1:2020   → public https://wardsetu.in
-Backend  (NestJS):   127.0.0.1:2010   → public https://api.wardsetu.in
-```
-
-```text
-Internet
-│
-├── wardsetu.in
-│     ↓
-│   Nginx
-│     ↓
-│   127.0.0.1:2020
-│     ↓
-│   WardSetu Next.js Frontend
-│
-└── api.wardsetu.in
-      ↓
-    Nginx
-      ↓
-    127.0.0.1:2010
-      ↓
-    WardSetu NestJS Backend
-```
+Port `2020` is reserved for the WardSetu frontend (Next.js). The backend must never bind to, proxy to or modify it. Full server topology and the Nginx diagram are canonical in `README.md` and `ARCHITECTURE.md` §15 — not repeated here.
 
 Production `CORS_ORIGINS` must include the public frontend origins (`https://wardsetu.in`, `https://www.wardsetu.in`), never the internal `127.0.0.1:2020` address.
 
@@ -540,26 +522,21 @@ wardsetu-backend/
 │   │   ├── health.controller.ts
 │   │   └── health.service.ts
 │
-│   └── modules/
+│   └── modules/          # see docs/API_SPECIFICATION.md for the authoritative module boundaries
 │       ├── auth/
 │       ├── users/
 │       ├── roles/
 │       ├── permissions/
-│       ├── organizations/
-│       ├── wards/
 │       ├── locations/
-│       ├── electoral-roll/
-│       ├── voters/
-│       ├── polling-stations/
-│       ├── candidates/
-│       ├── campaigns/
+│       ├── representatives/
 │       ├── issues/
-│       ├── volunteers/
-│       ├── notifications/
+│       ├── content/
+│       ├── community/
+│       ├── team/
+│       ├── administration/
 │       ├── reports/
-│       ├── analytics/
-│       ├── gis/
-│       └── ai/
+│       ├── audit/
+│       └── feature-flags/
 │
 ├── prisma/
 │   ├── schema.prisma
@@ -2420,47 +2397,21 @@ audit/consent/deletion/device/feature-flag models.
 
 ### Authorization model (spec v6.0)
 
-* `user_ward_roles` is the table every authorization check queries, for every role. There is one
+The role/scope model, permission catalog, three-tier precedence, and cascade rules are
+authoritative in `docs/DATABASE_ARCHITECTURE.md` §13 and `docs/API_SPECIFICATION.md` §6/§11 — not
+restated here. Two implementation-only notes not covered by those documents:
+
+* `user_ward_roles` is the table every authorization check queries, for every role, with one
   uniform query shape: "does a live row exist for this user, this ward and, for term-scoped
-  roles, the ward's current active term".
-* `ward_representative` and `ward_rep_office` rows carry `election_term_id` and are written in the
-  same transaction as `representative_office_users` (or when `linked_user_id` is set). They are
-  deleted in the same transaction that closes the term.
-* Every user gets an explicit `citizen` row, auto-created at first OTP verify. Existing users
-  predating this rule need a one-off, idempotent backfill run once as part of the migration,
-  before dependent application code goes live.
-* `user_ward_roles` scopes each role by exactly one of `ward_id` / `city_id` / `district_id` /
-  `state_id` (or none for `citizen` / `platform_admin`). This is enforced by a database CHECK,
-  with `UNIQUE NULLS NOT DISTINCT`. Confirmed compatible with the operator's server: PostgreSQL
-  16.15 (needs 15+).
-* Nine roles: `citizen`, `ward_staff`, `ward_representative`, `ward_rep_office`, `ward_admin`,
-  `ulb_admin`, `district_admin`, `state_admin`, `platform_admin`. Appointments cascade:
-  platform → state → district → ULB → ward admin.
-* Effective permissions: roles from `user_ward_roles` → platform default `role_permissions` →
-  `ward_role_permission_overrides` (ward + role) → `user_permission_overrides` (user;
-  ward-specific before global; expired rows skipped). The most specific tier wins. Role
-  capabilities are data, not code; seed lists use concrete keys, never wildcards.
-* `ward_representative` does **not** get `content:publish` by default (`ward_admin` does); a ward
-  opts in with a `ward_role_permission_overrides` grant. This is the single confirmed source of
-  truth — an earlier worked example in the spec briefly contradicted its own seed list and was
-  corrected.
-* `ward_rep_office` has a **narrower** set than `ward_representative`: no `team:invite`,
-  `team:manage_roles`, `team:remove`, `representative_office:manage` or `elections:manage`. Office
-  staff run day-to-day ward operations but can never change who has dashboard access, who the
-  representative is, or the platform-wide escalation default.
-* `view_analytics`-shaped permissions **cascade down** the location hierarchy (a `state_admin`'s
-  grant covers every district/ULB/ward beneath it); `manage_*`-shaped permissions are checked at
-  **exactly** the caller's own scope column and never cascade.
-* Ward-scoped vs platform-wide escalation rules are two different permissions:
-  `escalation_rules:manage` (own ward only) and `escalation_rules:manage_platform_defaults`
-  (`platform_admin` only, for rows where `escalation_rules.ward_id IS NULL`).
-* The new-term workflow requires an explicit `representative_profile_id` or `new_profile`
-  (409 on a likely duplicate). Never infer identity by name or mobile.
-* Still open (see `docs/DATABASE_ARCHITECTURE.md` §17.2–§17.3): the mechanical detail of how the
-  hierarchy walk is implemented (join vs denormalised chain), and whether
-  `PUT /wards/:id/representative` (deprecated in v5.0) was intentionally dropped from v6.0's
-  endpoint list or omitted by accident — treat it as still deprecated, not removed, until
-  confirmed.
+  roles, the ward's current active term."
+* `ward_representative` / `ward_rep_office` rows are written in the same transaction as
+  `representative_office_users` (or when `linked_user_id` is set), and revoked in the same
+  transaction that closes the term.
+
+Still open (see `docs/DATABASE_ARCHITECTURE.md` §17.2–§17.3): the mechanical detail of how the
+hierarchy walk is implemented (join vs denormalised chain), and whether
+`PUT /wards/:id/representative` (deprecated in v5.0) was intentionally dropped from v6.0's
+endpoint list or omitted by accident — treat it as still deprecated, not removed, until confirmed.
 
 ### Authoritative API contract
 
