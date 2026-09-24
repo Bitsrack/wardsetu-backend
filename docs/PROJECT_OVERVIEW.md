@@ -2,13 +2,13 @@
 
 ## Document control
 
-| Field                                                                                                                                                 | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status                                                                                                                                                | Documentation only. No application code, database schema, Prisma models, APIs, migrations, infrastructure, configuration, dependencies, or services were changed to produce this document.                                                                                                                                                                                                                                                                     |
-| Scope                                                                                                                                                 | High-level product and system overview, not a technical specification.                                                                                                                                                                                                                                                                                                                                                                                         |
-| Sources                                                                                                                                               | `CLAUDE.md`, `README.md`, `.claude/skills/wardsetu-backend/SKILL.md` and `docs/DATABASE_ARCHITECTURE.md` / `docs/API_SPECIFICATION.md` in this (backend) repository; `CLAUDE.md`, `README.md`, `.gitignore` and `.claude/skills/wardsetu-frontend/SKILL.md` in the WardSetu frontend repository; the WardConnect Backend Schema & API Specification, Version 6.0 (Consolidated Edition), 17 Sep 2026.                                                          |
-| Note on source versioning                                                                                                                             | This document's task instructions refer to the source spec as "v5.0 (Consolidated Edition)." The actual authoritative document already reflected in this repository's `docs/DATABASE_ARCHITECTURE.md` and `docs/API_SPECIFICATION.md` is titled **Version 6.0 (Consolidated Edition)**. This overview follows the same v6.0 content as those two documents, for internal consistency, rather than the v5.0 label — flagged here rather than silently resolved. |
-| Neither `docs/ARCHITECTURE.md` nor a prior `docs/PROJECT_OVERVIEW.md` exists in either repository at the time of writing; none was found to redesign. |
+| Field                     | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status                    | Documentation only. No application code, database schema, Prisma models, APIs, migrations, infrastructure, configuration, dependencies, or services were changed to produce this document.                                                                                                                                                                                                                                                                     |
+| Scope                     | High-level product and system overview, not a technical specification.                                                                                                                                                                                                                                                                                                                                                                                         |
+| Sources                   | `CLAUDE.md`, `README.md`, `.claude/skills/wardsetu-backend/SKILL.md` and `docs/DATABASE_ARCHITECTURE.md` / `docs/API_SPECIFICATION.md` in this (backend) repository; `CLAUDE.md`, `README.md`, `.gitignore` and `.claude/skills/wardsetu-frontend/SKILL.md` in the WardSetu frontend repository; the WardConnect Backend Schema & API Specification, Version 6.0 (Consolidated Edition), 17 Sep 2026.                                                          |
+| Note on source versioning | This document's task instructions refer to the source spec as "v5.0 (Consolidated Edition)." The actual authoritative document already reflected in this repository's `docs/DATABASE_ARCHITECTURE.md` and `docs/API_SPECIFICATION.md` is titled **Version 6.0 (Consolidated Edition)**. This overview follows the same v6.0 content as those two documents, for internal consistency, rather than the v5.0 label — flagged here rather than silently resolved. |
+| Note on ARCHITECTURE.md   | Neither repository had an `ARCHITECTURE.md` when this document was first written. Both now have one, at `docs/ARCHITECTURE.md` (moved there from each repository's root after this document was written) — see §17 below for how it relates to this overview.                                                                                                                                                                                                  |
 
 This document does not duplicate the database schema, the full API endpoint list, or detailed frontend/backend coding standards. For those, see §17 below.
 
@@ -299,29 +299,38 @@ No future feature is promised here beyond what is already documented in the sour
 ## 17. Documentation and Source of Truth
 
 ```text
-CLAUDE.md
+PROJECT_OVERVIEW.md
+    ↓
+ARCHITECTURE.md
+    ↓
+DATABASE_ARCHITECTURE.md / API_SPECIFICATION.md
     ↓
 SKILL.md
-    ↓
-docs/*.md
     ↓
 Source Code
 ```
 
+(`CLAUDE.md` sits alongside `PROJECT_OVERVIEW.md` at the top as the entry point that names the
+skill and states non-negotiable key rules; both repositories' `CLAUDE.md` point here.)
+
 - **`CLAUDE.md`** (each repository) — project-level AI/development instructions: the entry point that points to the authoritative skill and states the non-negotiable key rules.
-- **`SKILL.md`** (each repository) — implementation standards and engineering rules; authoritative for how the code is actually built.
 - **`docs/PROJECT_OVERVIEW.md`** (this document) — high-level product/system overview for a new developer, architect, project manager, or AI coding agent to orient quickly.
+- **`docs/ARCHITECTURE.md`** (each repository) — authoritative for system architecture: how layers and modules relate and why, connecting this overview to the database/API documents without duplicating them.
 - **`docs/DATABASE_ARCHITECTURE.md`** — authoritative database model and relationships.
 - **`docs/API_SPECIFICATION.md`** — authoritative API contract and endpoint specification (narrative companion to OpenAPI/Swagger).
+- **`SKILL.md`** (each repository) — implementation standards and engineering rules; authoritative for how the code is actually built.
 - **OpenAPI/Swagger** (once implemented, served at `/api/docs`) — authoritative machine-readable API contract; an API change is not complete until its OpenAPI documentation is updated to match.
 - Frontend design/theme documentation (theme-token architecture, described in the frontend `README.md`/`SKILL.md`) — authoritative for UI/UX and design-system requirements.
 
-Neither repository currently has a `docs/ARCHITECTURE.md` file; where one is added in the future, it becomes the authoritative source for detailed system architecture and this overview should link to it in place of the high-level architecture in §9–§11 above.
+Both repositories now have a `docs/ARCHITECTURE.md` (added after this document was first written,
+and moved into `docs/` alongside the other reference documents); it is the authoritative source
+for the high-level architecture summarized in §9–§11 above — those sections give just enough
+architecture to orient a reader, and `docs/ARCHITECTURE.md` is where the full picture lives.
 
 ### Source-of-truth rules
 
 - `SKILL.md` is authoritative for implementation/engineering rules.
-- Architecture documents (once present) are authoritative for system architecture.
+- `docs/ARCHITECTURE.md` (each repository) is authoritative for system architecture.
 - `docs/DATABASE_ARCHITECTURE.md` is authoritative for database design.
 - `docs/API_SPECIFICATION.md` is authoritative for API contracts.
 - OpenAPI/Swagger is authoritative for the machine-readable API contract.

@@ -4,9 +4,13 @@ Always load and follow the project skill before working in this repository:
 `.claude/skills/wardsetu-backend/SKILL.md` (skill name `wardsetu-backend`).
 
 Documentation layering (avoid restating facts owned elsewhere): `SKILL.md` is authoritative for
-engineering/style rules, `ARCHITECTURE.md` for system architecture, `docs/DATABASE_ARCHITECTURE.md`
+engineering/style rules, `docs/ARCHITECTURE.md` for system architecture, `docs/DATABASE_ARCHITECTURE.md`
 for the database design, `docs/API_SPECIFICATION.md` for the API contract, and
 `docs/PROJECT_OVERVIEW.md` for product-level scope. This file only points to them.
+
+Read `docs/PROJECT_OVERVIEW.md` → `docs/ARCHITECTURE.md` → `docs/DATABASE_ARCHITECTURE.md` /
+`docs/API_SPECIFICATION.md` → `SKILL.md`, in that order, before implementing anything nontrivial —
+each narrows scope from product intent to exact engineering rules.
 
 Key rules (the skill is authoritative):
 

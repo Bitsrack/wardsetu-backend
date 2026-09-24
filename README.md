@@ -189,6 +189,14 @@ policy. It is documentation only; no endpoints are implemented yet, and it is no
 specification itself — once implementation begins, the OpenAPI spec is authoritative for exact
 request/response shapes.
 
+### Architecture and product overview
+
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) connects the above into one technical picture —
+layering, module boundaries, the authorization/issue/election architecture, and the security and
+infrastructure boundaries — without duplicating their detail.
+[`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) is the high-level product overview (identity,
+MVP scope, future phases) for a new developer or agent to orient quickly before going deeper.
+
 ### Current schema status
 
 `prisma/schema.prisma` defines no models yet. The existing `wardsetu` database schema is not

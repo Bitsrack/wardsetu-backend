@@ -38,20 +38,32 @@ The current priority is to establish and maintain a robust backend foundation.
 
 ## Source Discipline
 
-Read before implementing, and treat as canonical for their own layer — do not restate their
-content elsewhere or re-derive it independently:
+Read in this order before implementing anything nontrivial, and treat each as canonical for its
+own layer — do not restate their content elsewhere or re-derive it independently:
 
-* `docs/DATABASE_ARCHITECTURE.md` — canonical for every table, column, constraint, role, and
-  permission key.
-* `docs/API_SPECIFICATION.md` — canonical for the API contract: endpoints, conventions, and the
-  authorization resolution order.
-* `ARCHITECTURE.md` — canonical for system architecture: how layers/modules relate and why.
-* `docs/PROJECT_OVERVIEW.md` — canonical for product-level scope and the MVP role model.
-* This file (`SKILL.md`) — canonical for engineering/style rules, folder conventions, and
-  operational do/don't rules only.
+1. `docs/PROJECT_OVERVIEW.md` — product-level scope and the MVP role model.
+2. `docs/ARCHITECTURE.md` — system architecture: how layers/modules relate and why.
+3. `docs/DATABASE_ARCHITECTURE.md` — every table, column, constraint, role, and permission key.
+4. `docs/API_SPECIFICATION.md` — the API contract: endpoints, conventions, and the authorization
+   resolution order.
+5. This file (`SKILL.md`) — engineering/style rules, folder conventions, and operational
+   do/don't rules only.
 
 When a rule from one of those documents is relevant here, link to it (`docs/DATABASE_ARCHITECTURE.md §13`)
 rather than copying it — a rule that lives in two places will eventually disagree with itself.
+
+## Token Efficiency Rules
+
+To reduce unnecessary context usage while working in this repository:
+
+* Do not read `src/generated/prisma/` (generated Prisma Client) or `dist/`.
+* Do not read `package-lock.json` unless a dependency change is actually being made.
+* Do not inspect `node_modules/`.
+* Do not reopen a file already read this session unless it changed on disk.
+* Prefer a targeted `Grep`/`Glob` over a repository-wide scan when the target is known or
+  guessable.
+* Prefer reading the relevant section of a large doc (`docs/DATABASE_ARCHITECTURE.md`,
+  `docs/API_SPECIFICATION.md`) over the whole file when only one part is needed.
 
 ---
 
@@ -365,7 +377,7 @@ Never use:
 
 Never use a port already occupied by another application.
 
-Port `2020` is reserved for the WardSetu frontend (Next.js). The backend must never bind to, proxy to or modify it. Full server topology and the Nginx diagram are canonical in `README.md` and `ARCHITECTURE.md` §15 — not repeated here.
+Port `2020` is reserved for the WardSetu frontend (Next.js). The backend must never bind to, proxy to or modify it. Full server topology and the Nginx diagram are canonical in `README.md` and `docs/ARCHITECTURE.md` §15 — not repeated here.
 
 Production `CORS_ORIGINS` must include the public frontend origins (`https://wardsetu.in`, `https://www.wardsetu.in`), never the internal `127.0.0.1:2020` address.
 
