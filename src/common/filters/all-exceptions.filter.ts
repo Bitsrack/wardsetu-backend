@@ -14,6 +14,7 @@ const INTERNAL_ERROR_MESSAGE = 'Internal server error';
 
 interface NormalisedError {
   statusCode: number;
+  code: string;
   message: string;
   details?: unknown[];
 }
@@ -27,36 +28,46 @@ function isHttpLikeError(error: unknown): error is HttpLikeError {
   return typeof status === 'number' && status >= 400 && status < 600;
 }
 
+/** Stable, machine-readable code for a status (e.g. `BAD_REQUEST`, `NOT_FOUND`). */
+function errorCode(status: number): string {
+  return HttpStatus[status] ?? 'ERROR';
+}
+
 function normalise(exception: unknown): NormalisedError {
   if (exception instanceof HttpException) {
-    const statusCode = exception.getStatus();
+    const status = exception.getStatus();
     const body = exception.getResponse();
-    if (typeof body === 'string') return { statusCode, message: body };
+    if (typeof body === 'string')
+      return { statusCode: status, code: errorCode(status), message: body };
 
     const { message, details } = body as { message?: unknown; details?: unknown };
     if (Array.isArray(message)) {
-      return { statusCode, message: 'Validation failed', details: message };
+      return {
+        statusCode: status,
+        code: 'VALIDATION_FAILED',
+        message: 'Validation failed',
+        details: message,
+      };
     }
     return {
-      statusCode,
+      statusCode: status,
+      code: errorCode(status),
       message: typeof message === 'string' ? message : exception.message,
       ...(Array.isArray(details) ? { details } : {}),
     };
   }
   if (isHttpLikeError(exception) && exception.status < 500) {
-    return { statusCode: exception.status, message: exception.message };
+    return {
+      statusCode: exception.status,
+      code: errorCode(exception.status),
+      message: exception.message,
+    };
   }
-  return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: INTERNAL_ERROR_MESSAGE };
-}
-
-function reasonPhrase(statusCode: number): string {
-  const name = HttpStatus[statusCode] as string | undefined;
-  if (!name) return 'Error';
-  return name
-    .toLowerCase()
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  return {
+    statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+    code: errorCode(HttpStatus.INTERNAL_SERVER_ERROR),
+    message: INTERNAL_ERROR_MESSAGE,
+  };
 }
 
 /**
@@ -72,7 +83,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<RequestWithId>();
     const response = ctx.getResponse<Response>();
-    const { statusCode, message, details } = normalise(exception);
+    const { statusCode, code, message, details } = normalise(exception);
 
     if (statusCode >= 500) {
       this.logger.write(
@@ -90,13 +101,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     const body: ApiErrorResponse = {
-      success: false,
-      statusCode,
-      message,
-      error: reasonPhrase(statusCode),
-      ...(details ? { details } : {}),
-      timestamp: new Date().toISOString(),
-      path: request.originalUrl.split('?')[0],
+      error: { code, message, ...(details ? { details } : {}) },
       ...(request.requestId ? { requestId: request.requestId } : {}),
     };
     response.status(statusCode).json(body);

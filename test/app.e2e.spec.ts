@@ -116,7 +116,7 @@ describe('WardSetu backend (HTTP)', () => {
         .send({ name: 'x'.repeat(4096), count: 1 })
         .expect(413);
 
-      expect(res.body).toMatchObject({ success: false, statusCode: 413 });
+      expect(res.body).toMatchObject({ error: { code: 'PAYLOAD_TOO_LARGE' } });
     });
   });
 
@@ -148,11 +148,7 @@ describe('WardSetu backend (HTTP)', () => {
         .send({ name: 'ward', count: 2 })
         .expect(201);
 
-      expect(res.body).toEqual({
-        success: true,
-        message: 'Request successful',
-        data: { name: 'ward', count: 2 },
-      });
+      expect(res.body).toEqual({ data: { name: 'ward', count: 2 } });
     });
 
     it('returns validation failures in the error format', async () => {
@@ -162,15 +158,11 @@ describe('WardSetu backend (HTTP)', () => {
         .expect(400);
 
       expect(res.body).toMatchObject({
-        success: false,
-        statusCode: 400,
-        message: 'Validation failed',
-        error: 'Bad Request',
-        path: '/api/test-echo',
+        error: { code: 'VALIDATION_FAILED', message: 'Validation failed' },
       });
       const body = res.body as ApiErrorResponse;
-      expect(body.details).toEqual([{ field: 'count', errors: [expect.any(String)] }]);
-      expect(typeof body.timestamp).toBe('string');
+      expect(body.error.details).toEqual([{ field: 'count', errors: [expect.any(String)] }]);
+      expect(typeof body.requestId).toBe('string');
     });
 
     it('rejects properties that are not in the DTO', async () => {
@@ -179,7 +171,7 @@ describe('WardSetu backend (HTTP)', () => {
         .send({ name: 'ward', count: 1, isAdmin: true })
         .expect(400);
 
-      expect((res.body as ApiErrorResponse).details).toEqual([
+      expect((res.body as ApiErrorResponse).error.details).toEqual([
         { field: 'isAdmin', errors: [expect.any(String)] },
       ]);
     });
@@ -187,16 +179,14 @@ describe('WardSetu backend (HTTP)', () => {
     it('returns 404 in the error format', async () => {
       const res = await request(app.getHttpServer()).get('/api/does-not-exist').expect(404);
 
-      expect(res.body).toMatchObject({ success: false, statusCode: 404, error: 'Not Found' });
+      expect(res.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
     });
 
     it('hides internal error details', async () => {
       const res = await request(app.getHttpServer()).get('/api/test-echo/boom').expect(500);
 
       expect(res.body).toMatchObject({
-        success: false,
-        statusCode: 500,
-        message: 'Internal server error',
+        error: { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' },
       });
       expect(JSON.stringify(res.body)).not.toMatch(/secret_table|hunter2|stack|\.ts/);
     });

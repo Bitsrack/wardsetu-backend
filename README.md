@@ -288,23 +288,25 @@ npm run test:cov
 
 ## API conventions
 
+Matches `docs/API_SPECIFICATION.md` §2 (the v6.0 spec's documented contract — an earlier
+`{success, message, data}` shape was implemented first and has since been migrated to this one;
+see `plan.md` §3.5/§7 for that decision).
+
 Success:
 
 ```json
-{ "success": true, "message": "Request successful", "data": {} }
+{ "data": {} }
 ```
 
 Error:
 
 ```json
 {
-  "success": false,
-  "statusCode": 400,
-  "message": "Validation failed",
-  "error": "Bad Request",
-  "details": [{ "field": "count", "errors": ["count must not be less than 1"] }],
-  "timestamp": "2026-09-23T00:00:00.000Z",
-  "path": "/api/example",
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Validation failed",
+    "details": [{ "field": "count", "errors": ["count must not be less than 1"] }]
+  },
   "requestId": "…"
 }
 ```

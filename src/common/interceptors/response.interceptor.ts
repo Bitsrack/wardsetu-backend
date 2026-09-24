@@ -9,9 +9,7 @@ import { map, type Observable } from 'rxjs';
 import { SKIP_RESPONSE_WRAP } from '../decorators';
 import type { ApiSuccessResponse } from '../types';
 
-export const DEFAULT_SUCCESS_MESSAGE = 'Request successful';
-
-/** Wraps successful responses in `{ success: true, message, data }`. */
+/** Wraps successful responses in `{ data, meta? }` (`docs/API_SPECIFICATION.md` §2). */
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, ApiSuccessResponse<T> | T> {
   constructor(private readonly reflector: Reflector) {}
@@ -26,8 +24,6 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ApiSuccessResp
     ]);
     if (skip) return next.handle();
 
-    return next
-      .handle()
-      .pipe(map((data) => ({ success: true as const, message: DEFAULT_SUCCESS_MESSAGE, data })));
+    return next.handle().pipe(map((data) => ({ data })));
   }
 }

@@ -1150,20 +1150,8 @@ It must:
 
 # 31. Error Handling
 
-Use centralized exception handling.
-
-Preferred error structure:
-
-```json
-{
-  "success": false,
-  "statusCode": 400,
-  "message": "Validation failed",
-  "error": "Bad Request",
-  "timestamp": "2026-09-18T00:00:00.000Z",
-  "path": "/api/example"
-}
-```
+Use centralized exception handling. Error structure: see §32 — this is the same envelope, not a
+second one.
 
 Never expose in production:
 
@@ -1177,27 +1165,28 @@ Never expose in production:
 
 # 32. API Response Convention
 
+Canonical in `docs/API_SPECIFICATION.md` §2 — the v6.0 spec's documented contract, resolved
+(2026) in favor of that shape over an earlier `{success, message, data}` implementation (see
+`plan.md` §3.5/§7):
+
 Success:
 
 ```json
-{
-  "success": true,
-  "message": "Request successful",
-  "data": {}
-}
+{ "data": {} }
 ```
 
 Error:
 
 ```json
 {
-  "success": false,
-  "message": "Something went wrong",
-  "error": "ERROR_CODE"
+  "error": { "code": "VALIDATION_FAILED", "message": "Validation failed", "details": [] },
+  "requestId": "…"
 }
 ```
 
-Do not over-engineer the response wrapper.
+`code` is a stable, machine-readable string (e.g. `BAD_REQUEST`, `NOT_FOUND`,
+`VALIDATION_FAILED`, `INTERNAL_SERVER_ERROR`) — never the human-readable `message` text. Do not
+over-engineer the response wrapper beyond this shape.
 
 ---
 
@@ -2382,8 +2371,8 @@ dependency.
 * Global `ValidationPipe`, `AllExceptionsFilter` and `ResponseInterceptor`
   are registered as `APP_PIPE` / `APP_FILTER` / `APP_INTERCEPTOR` providers
   in `AppModule`.
-* `@SkipResponseWrap()` opts a handler out of the `{ success, message, data }`
-  envelope (used by `/api/health`).
+* `@SkipResponseWrap()` opts a handler out of the `{ data, meta? }` envelope (§32; used by
+  `/api/health`).
 * `AppLogger` (`src/common/logger`) is the structured logger: JSON lines in
   production, readable lines elsewhere, with sensitive keys redacted.
 * `PrismaService` does not crash the process when the database is
